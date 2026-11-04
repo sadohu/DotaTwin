@@ -15,7 +15,7 @@ from typing import Dict, Any
 # ═══════════════════════════════════════════════════════════════════════════
 
 APP_NAME = "DotaTwin"
-APP_VERSION = "3.2.0"
+APP_VERSION = "3.3.0"
 VERSION = APP_VERSION  # Alias para compatibilidad
 APP_AUTHOR = "Sadohu"
 APP_DESCRIPTION = "Twin your Dota experience - Copy configurations between Steam accounts"
@@ -61,6 +61,10 @@ PROJECT_ROOT = _get_base_path()
 ASSETS_DIR = PROJECT_ROOT / "config" / "assets"
 CONFIG_DIR = PROJECT_ROOT / "config"
 DOCS_DIR = PROJECT_ROOT / "docs"
+
+# Respaldos: siempre junto al exe (o en la raíz del proyecto en desarrollo)
+BACKUPS_DIR = PROJECT_ROOT / "backups"
+MAX_BACKUPS_PER_ACCOUNT = 5
 
 # Rutas de Steam (Windows)
 STEAM_USERDATA_PATH = Path(r"C:\Program Files (x86)\Steam\userdata")
@@ -202,9 +206,9 @@ DEFAULT_CONFIG = {
 # ═══════════════════════════════════════════════════════════════════════════
 
 MESSAGES = {
-    "confirm_ignore": "¿Deseas ignorar la cuenta '{}'?\n\nPodrás restaurarla desde la pestaña 'Cuentas Ignoradas'.",
-    "confirm_copy": "¿Deseas copiar la configuración de:\n\n{} → {} ?",
-    "success_copy": "La configuración fue copiada con éxito.",
+    "confirm_ignore": "Dejará de aparecer en la lista. Podrás recuperarla cuando quieras desde la pestaña Cuentas Ignoradas.",
+    "confirm_copy": "La configuración actual de {destino} se reemplazará por la de {origen}.\n\nAntes de copiar se guarda un respaldo de {destino}.",
+    "success_copy": "Entra a Steam con {destino} y abre Dota 2: tendrás las mismas teclas, héroes y ajustes que {origen}.",
     "error_same_account": "Origen y destino no pueden ser iguales.",
     "select_accounts": "Selecciona origen y destino",
     "ready_to_copy": "Listo para copiar de '{}' a '{}'",
@@ -212,7 +216,7 @@ MESSAGES = {
     "no_ignored_accounts": "No hay cuentas ignoradas",
     "error_steam_path": "No se encontró la instalación de Steam en la ruta estándar",
     "error_permissions": "Error de permisos. Ejecuta como administrador.",
-    "error_dota_running": "Cierra Dota 2 antes de copiar.\n\nSi sigue abierto, el juego puede reemplazar la configuración copiada al cerrarse. Steam puede quedarse abierto.",
+    "error_dota_running": "Si Dota 2 sigue abierto, al cerrarse puede reemplazar la configuración copiada. Steam sí puede quedarse abierto.",
     "error_copy_failed": "Error copiando archivos: {}"
 }
 

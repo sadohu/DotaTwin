@@ -13,16 +13,18 @@ from pathlib import Path
 # Imports locales
 from .main_tab import AccountListWidget, StatusWidget, ActionButtonsWidget
 from .ignored_tab import IgnoredTabController
+from .restore_dialog import RestoreBackupDialog
 from ..core.steam_service import SteamAccountService, AccountFilterService, ValidationService
 from ..core.config_service import ConfigurationService, FileCopyService
 from ..core.steam_config_service import SteamConfigurationService
-from ..models.domain_models import SteamAccount, AppSelection, CopyOperation, AppConfig
+from ..models.domain_models import SteamAccount, AppSelection, CopyOperation, AppConfig, BackupInfo
 from ..utils.ui_utils import MessageHelper, IconHelper, AboutDialog
+from ..utils.dialogs import Toast
 from ..utils.logging_utils import LoggingMixin, OperationContext
 from ..utils.theme import apply_theme, normalize_theme, THEMES
 from config.settings import (
     APP_NAME, APP_VERSION, APP_AUTHOR, APP_DESCRIPTION, WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT,
-    WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT, ICON_PATH, MESSAGES
+    WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT, ICON_PATH, MESSAGES, DOTA2_APP_ID
 )
 
 
@@ -84,8 +86,9 @@ class DotaTwinApp(LoggingMixin):
                 # Si el usuario cancela, mostrar advertencia pero continuar
                 MessageHelper.show_warning(
                     "Steam no configurado",
-                    "La aplicación funcionará con limitaciones.\\n"
-                    "Puede configurar Steam más tarde desde el menú Configuración."
+                    "Puedes indicar la carpeta de Steam más tarde desde "
+                    "Configuración → Configurar Steam.",
+                    heading="No se encontraron tus cuentas de Steam"
                 )
         
         # Inicializar otros servicios
@@ -216,6 +219,7 @@ class DotaTwinApp(LoggingMixin):
         # Menú Archivo
         file_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Archivo", menu=file_menu)
+        file_menu.add_command(label="Restaurar respaldo...", command=self._show_restore_dialog)
         file_menu.add_command(label="Recargar cuentas", command=self._reload_accounts)
         file_menu.add_separator()
         file_menu.add_command(label="Salir", command=self._on_closing)
@@ -278,7 +282,7 @@ class DotaTwinApp(LoggingMixin):
         # Widget principal de lista de cuentas
         self.main_tab_widget = AccountListWidget(
             main_frame, 
-            "Cuentas Steam con Dota 2 detectadas"
+            "Tus cuentas de Steam"
         )
         
         # Configurar callbacks
@@ -313,14 +317,18 @@ class DotaTwinApp(LoggingMixin):
             # Validar instalación de Steam
             is_valid, error_msg = self.validation_service.validate_steam_paths()
             if not is_valid:
-                MessageHelper.show_error("Error", error_msg)
+                MessageHelper.show_error("Steam no encontrado", error_msg,
+                                         heading="No se encontró la carpeta de Steam")
                 return
-            
+
             # Detectar cuentas de Steam
             self.all_accounts = self.steam_service.find_accounts_with_dota2()
-            
+
             if not self.all_accounts:
-                MessageHelper.show_warning("Aviso", MESSAGES["no_accounts"])
+                MessageHelper.show_warning(
+                    "Sin cuentas", "Inicia sesión en Steam al menos una vez con "
+                    "cada cuenta para que aparezca aquí.",
+                    heading=MESSAGES["no_accounts"])
                 return
             
             # Cargar configuración guardada
@@ -450,22 +458,18 @@ class DotaTwinApp(LoggingMixin):
         if self.app_config.is_ignored(account.steamid):
             MessageHelper.show_info(
                 "Cuenta ya ignorada",
-                f"La cuenta '{account.nombre}' ya está en la lista de ignoradas.\\n\\n"
-                f"Puedes verla en la pestaña 'Cuentas Ignoradas'."
+                "Puedes verla en la pestaña Cuentas Ignoradas.",
+                heading=f"{account.nombre} ya está ignorada"
             )
             return
-        
-        # Confirmar con el usuario (asegurar que el diálogo aparezca al frente)
-        self.root.lift()  # Traer ventana al frente
-        self.root.attributes('-topmost', True)  # Temporal: al frente
-        
+
         confirm = MessageHelper.ask_confirmation(
-            "Confirmar",
-            MESSAGES["confirm_ignore"].format(account.nombre)
+            "Ignorar cuenta",
+            MESSAGES["confirm_ignore"],
+            heading=f"¿Ignorar {account.nombre}?",
+            confirm_text="Ignorar", cancel_text="Cancelar"
         )
-        
-        self.root.attributes('-topmost', False)  # Quitar topmost
-        
+
         if not confirm:
             return
         
@@ -483,12 +487,8 @@ class DotaTwinApp(LoggingMixin):
         # Actualizar listas
         self._refresh_account_lists()
         
-        # Mostrar confirmación de éxito
-        MessageHelper.show_info(
-            "Cuenta ignorada",
-            f"La cuenta '{account.nombre}' ha sido ignorada exitosamente.\\n\\n"
-            f"Puedes restaurarla desde la pestaña 'Cuentas Ignoradas'."
-        )
+        # Aviso breve: no hace falta otro diálogo que cerrar
+        Toast.show(self.root, f"{account.nombre} se movió a Cuentas Ignoradas")
         
         self.log_method_call("account_ignored", account=account.steamid)
     
@@ -508,37 +508,37 @@ class DotaTwinApp(LoggingMixin):
         # Actualizar listas
         self._refresh_account_lists()
         
-        # Mostrar confirmación de éxito
-        MessageHelper.show_info(
-            "Cuenta restaurada",
-            f"La cuenta '{account.nombre}' ha sido restaurada exitosamente.\\n\\n"
-            f"Ahora aparece en la pestaña 'Cuentas Disponibles'."
-        )
+        # Aviso breve: no hace falta otro diálogo que cerrar
+        Toast.show(self.root, f"{account.nombre} volvió a Cuentas Disponibles")
         
         self.log_method_call("account_restored", account=account.steamid)
     
     def _on_copy_configuration(self) -> None:
         """Maneja la solicitud de copiar configuración."""
         if not self.current_selection.is_valid:
-            MessageHelper.show_error("Error", "Selección inválida para copia")
+            MessageHelper.show_error("No se puede copiar",
+                                     "Elige una cuenta de origen y otra distinta de destino.")
             return
 
         # Dota 2 abierto guardaría su configuración al cerrarse y pisaría la copia
         running = self.validation_service.find_running_dota_processes()
         if running:
-            MessageHelper.show_error(
-                "Cierra Dota 2",
-                MESSAGES["error_dota_running"]
+            MessageHelper.show_warning(
+                "Dota 2 está abierto",
+                MESSAGES["error_dota_running"],
+                heading="Cierra Dota 2 antes de copiar"
             )
             return
 
         # Confirmar operación
+        names = {"origen": self.current_selection.origen.nombre,
+                 "destino": self.current_selection.destino.nombre}
         confirm = MessageHelper.ask_confirmation(
-            "Confirmar",
-            MESSAGES["confirm_copy"].format(
-                self.current_selection.origen.nombre,
-                self.current_selection.destino.nombre
-            )
+            "Copiar configuración",
+            MESSAGES["confirm_copy"].format(**names),
+            heading=f"¿Copiar de {names['origen']} a {names['destino']}?",
+            confirm_text="Copiar", cancel_text="Cancelar",
+            confirm_style="Success.TButton"
         )
         
         if not confirm:
@@ -557,7 +557,7 @@ class DotaTwinApp(LoggingMixin):
         )
         
         if not is_valid:
-            MessageHelper.show_error("Error de validación", error_msg)
+            MessageHelper.show_error("No se puede copiar", error_msg)
             return
         
         # Ejecutar copia
@@ -565,14 +565,17 @@ class DotaTwinApp(LoggingMixin):
             success, message = self.file_service.copy_configuration(copy_operation)
             
             if success:
-                MessageHelper.show_info("Éxito", MESSAGES["success_copy"], "success")
+                MessageHelper.show_info("Configuración copiada",
+                                        MESSAGES["success_copy"].format(**names), "success",
+                                        heading="¡Listo! Configuración copiada")
                 # Guardar selección exitosa
                 self.config_service.update_selection(
                     self.current_selection.origen.steamid,
                     self.current_selection.destino.steamid
                 )
             else:
-                MessageHelper.show_error("Error", message)
+                MessageHelper.show_error("No se pudo copiar", message,
+                                         heading="La copia no se completó")
         
         self.log_method_call("copy_configuration", 
                             success=success, message=message)
@@ -583,7 +586,69 @@ class DotaTwinApp(LoggingMixin):
         self._on_selection_changed(self.current_selection)
         
         self.log_method_call("cancel_selection")
-    
+
+    def _show_restore_dialog(self) -> None:
+        """Abre la lista de respaldos para recuperar la configuración de una cuenta."""
+        RestoreBackupDialog(
+            self.root,
+            list_backups=self.file_service.list_backups,
+            find_account=lambda steamid: self.filter_service.find_account_by_id(
+                self.all_accounts, steamid),
+            on_restore=self._restore_backup,
+            backup_dir=self.file_service.backup_dir,
+        ).show()
+
+    def _restore_backup(self, backup: BackupInfo, name: str) -> bool:
+        """
+        Restaura un respaldo tras confirmarlo. Devuelve True si se restauró.
+
+        Args:
+            backup: Respaldo elegido
+            name: Nombre de la cuenta (para los mensajes)
+        """
+        if self.validation_service.find_running_dota_processes():
+            MessageHelper.show_warning(
+                "Dota 2 está abierto",
+                "Si Dota 2 sigue abierto, al cerrarse puede reemplazar la configuración "
+                "restaurada. Steam sí puede quedarse abierto.",
+                heading="Cierra Dota 2 antes de restaurar"
+            )
+            return False
+
+        confirm = MessageHelper.ask_confirmation(
+            "Restaurar respaldo",
+            f"La configuración actual de {name} se reemplazará por la del "
+            f"{backup.created_text}.\n\nAntes se guarda un respaldo de la configuración "
+            "actual, por si quieres volver atrás.",
+            heading=f"¿Restaurar el respaldo de {name}?",
+            confirm_text="Restaurar", cancel_text="Cancelar"
+        )
+        if not confirm:
+            return False
+
+        account = self.filter_service.find_account_by_id(self.all_accounts, backup.steamid)
+        if account:
+            config_path = account.ruta
+        else:
+            config_path = (Path(self.steam_service.steam_userdata_path)
+                           / backup.steamid / DOTA2_APP_ID)
+
+        with OperationContext("restore_backup", self.logger):
+            success, message = self.file_service.restore_backup(backup, config_path)
+
+        if success:
+            MessageHelper.show_info(
+                "Respaldo restaurado",
+                f"Entra a Steam con {name} y abre Dota 2: tendrás la configuración "
+                f"del {backup.created_text}.", "success",
+                heading="¡Listo! Respaldo restaurado")
+        else:
+            MessageHelper.show_error("No se pudo restaurar", message,
+                                     heading="La restauración no se completó")
+
+        self.log_method_call("restore_backup", success=success, backup=backup.path.name)
+        return success
+
     def _reload_accounts(self) -> None:
         """Recarga las cuentas de Steam."""
         with OperationContext("reload_accounts", self.logger):
@@ -593,7 +658,7 @@ class DotaTwinApp(LoggingMixin):
             # Recargar datos
             self._load_initial_data()
             
-            MessageHelper.show_info("Cuentas recargadas", "Las cuentas de Steam han sido recargadas correctamente.")
+            Toast.show(self.root, "Cuentas de Steam recargadas")
     
     def _configure_steam(self) -> None:
         """Abre el diálogo de configuración de Steam."""
@@ -618,18 +683,15 @@ class DotaTwinApp(LoggingMixin):
             # Recargar cuentas
             self._reload_accounts()
             
-            MessageHelper.show_info(
-                "Steam detectado",
-                "Steam ha sido detectado automáticamente y las cuentas han sido recargadas."
-            )
+            Toast.show(self.root, "Steam detectado y cuentas recargadas")
         else:
             # Restaurar ruta anterior si falla
             self.app_config.custom_steam_path = old_path
-            
+
             MessageHelper.show_warning(
                 "Steam no detectado",
-                "No se pudo detectar Steam automáticamente.\\n"
-                "Use 'Configurar Steam...' para seleccionar la ubicación manualmente."
+                "Usa Configuración → Configurar Steam para elegir la carpeta a mano.",
+                heading="No se encontró Steam automáticamente"
             )
     
     def _on_theme_changed(self) -> None:
@@ -674,6 +736,7 @@ Copia tu configuración de Dota 2 de una cuenta de Steam a otra en un par de cli
 - Copia toda tu configuración de Dota 2
 - Copia a cuentas que nunca abrieron Dota 2
 - Guarda un respaldo antes de reemplazar nada
+- Recupera la configuración anterior (Archivo → Restaurar respaldo)
 - Recuerda las cuentas que elegiste y tus preferencias
 - Modo oscuro y modo claro (menú Ver)
 - Oculta las cuentas que no usas

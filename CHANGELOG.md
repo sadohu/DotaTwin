@@ -5,6 +5,34 @@ Todos los cambios notables de este proyecto serán documentados en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto adhiere a [Versionado Semántico](https://semver.org/lang/es/).
 
+## [v3.3.0] - 2026-11-04 🎨 INTERFAZ MÁS CLARA
+
+### 🎯 **PANTALLA PRINCIPAL**
+- **Colores con significado**: azul Origen, verde Destino y Copiar, rojo Limpiar selección, gris Ignorar
+- **Iconos propios**: papelera en Limpiar y hojas en Copiar, dibujados por la app (los emojis se veían en blanco y negro)
+- **Filas de cuenta**: nombre en negrita, SteamID debajo e insignias ORIGEN / DESTINO en las cuentas elegidas
+- **Ayudas al pasar el ratón**: explican cada botón, incluido por qué Origen está apagado en cuentas que nunca abrieron Dota 2
+- **Resumen Origen → Destino**: tarjetas con avatar y nombre de cada cuenta y una guía de 3 pasos
+- **Botones inteligentes**: Limpiar se activa al elegir alguna cuenta y Copiar cuando todo está listo
+- **Sin errores de selección**: elegir una cuenta para un rol la quita del otro, así origen y destino nunca coinciden
+
+### 💬 **AVISOS Y DIÁLOGOS**
+- **Ventanas propias con el tema**: todos los avisos siguen el modo oscuro/claro, con insignias de color (pregunta, listo, aviso, error)
+- **Textos claros**: título con lo que pasa y botones con la acción ("Copiar", "Ignorar", "Restaurar") en lugar de Sí/No
+- **Avisos breves**: ignorar, restaurar o recargar cuentas muestran un aviso que desaparece solo, sin otra ventana que cerrar
+- **Configurar Steam rediseñado**: muestra la carpeta detectada y usa los mismos botones que el resto de la app
+- **Cuentas Ignoradas**: filas con el mismo estilo que la lista principal y explicación cuando la lista está vacía
+
+### ⏪ **RESTAURAR RESPALDOS**
+- **Archivo → Restaurar respaldo**: lista los respaldos con avatar, nombre de la cuenta y fecha, y los restaura con un clic
+- **Se puede deshacer**: antes de restaurar se guarda un respaldo de la configuración actual
+- **Seguro**: exige cerrar Dota 2 y conserva el `remotecache.vdf` actual de la cuenta, igual que al copiar
+- **Carpeta fija**: los respaldos se guardan siempre en `backups` junto al exe (antes dependía de desde dónde se abriera)
+- **5 por cuenta**: se conservan los 5 más recientes de cada cuenta (antes eran 10 en total y una cuenta podía perder su único respaldo)
+
+### 🐛 **CORRECCIONES**
+- Varios mensajes mostraban `\n` como texto en lugar de un salto de línea
+
 ## [v3.2.0] - 2026-11-04 🌙 MODO OSCURO
 
 ### 🎨 **TEMAS**

@@ -7,13 +7,19 @@ y la detección automática cuando no se encuentra en rutas predeterminadas.
 
 import os
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, ttk
 from typing import Optional, List
 from pathlib import Path
 from ..models.domain_models import AppConfig
 from .steam_service import SteamAccountService
 from ..utils.logging_utils import LoggingMixin
-from ..utils.theme import palette, apply_title_bar
+from ..utils.theme import palette, apply_title_bar, FONTS
+
+
+def _messages():
+    """Diálogos de la interfaz; se importan al usarse para que el núcleo no cargue la GUI."""
+    from ..utils.ui_utils import MessageHelper
+    return MessageHelper
 
 
 class SteamConfigurationService(LoggingMixin):
@@ -73,12 +79,12 @@ class SteamConfigurationService(LoggingMixin):
         self.logger.info("Solicitando ubicación de Steam al usuario")
         
         # Mostrar mensaje explicativo
-        result = messagebox.askyesno(
+        result = _messages().ask_confirmation(
             "Steam no encontrado",
-            "No se pudo detectar Steam automáticamente.\\n\\n"
-            "¿Desea seleccionar manualmente la carpeta donde está instalado Steam?\\n\\n"
-            "Nota: Busque la carpeta que contiene 'steam.exe' y las carpetas 'userdata' y 'steamapps'.",
-            icon="question"
+            "Elige la carpeta donde instalaste Steam: es la que contiene steam.exe "
+            "y las carpetas userdata y steamapps.",
+            heading="No se encontró Steam automáticamente",
+            confirm_text="Elegir carpeta", cancel_text="Ahora no"
         )
         
         if not result:
@@ -99,21 +105,17 @@ class SteamConfigurationService(LoggingMixin):
             self.config.custom_steam_path = steam_path
             self._initialize_steam_service()
             
-            messagebox.showinfo(
-                "Steam configurado",
-                f"Steam configurado correctamente en:\\n{steam_path}"
-            )
-            
+            _messages().show_info("Steam configurado", steam_path, "success",
+                                    heading="Steam configurado correctamente")
+
             self.logger.info(f"Usuario configuró Steam en: {steam_path}")
             return True
         else:
-            messagebox.showerror(
-                "Ruta inválida",
-                "La carpeta seleccionada no parece contener una instalación válida de Steam.\\n\\n"
-                "Asegúrese de seleccionar la carpeta principal de Steam que contiene:\\n"
-                "- steam.exe\\n"
-                "- carpeta 'userdata'\\n"
-                "- carpeta 'steamapps'"
+            _messages().show_error(
+                "Carpeta no válida",
+                "Elige la carpeta principal de Steam, la que contiene steam.exe "
+                "y las carpetas userdata y steamapps.",
+                heading="Esa carpeta no es la de Steam"
             )
             return False
     
@@ -127,7 +129,12 @@ class SteamConfigurationService(LoggingMixin):
         Returns:
             Nueva ruta de Steam si se configuró, None si se canceló
         """
-        dialog = SteamConfigDialog(parent_window, self.config.custom_steam_path)
+        # Si no hay ruta propia, mostrar la que se detectó automáticamente
+        current_path = self.config.custom_steam_path
+        userdata = getattr(self.steam_service, "steam_userdata_path", None)
+        if not current_path and userdata:
+            current_path = str(Path(userdata).parent)
+        dialog = SteamConfigDialog(parent_window, current_path)
         result = dialog.show()
         
         if result:
@@ -137,11 +144,12 @@ class SteamConfigurationService(LoggingMixin):
                 self.logger.info(f"Steam reconfigurado a: {result}")
                 return result
             else:
-                messagebox.showerror(
-                    "Ruta inválida",
-                    "La ruta seleccionada no contiene una instalación válida de Steam."
+                _messages().show_error(
+                    "Carpeta no válida",
+                    "Elige la carpeta principal de Steam, la que contiene steam.exe.",
+                    heading="Esa carpeta no es la de Steam"
                 )
-        
+
         return None
     
     def get_steam_accounts(self) -> List:
@@ -175,21 +183,30 @@ class SteamConfigDialog:
         Returns:
             Ruta seleccionada o None si se canceló
         """
+        colors = palette()
         self.dialog = tk.Toplevel(self.parent)
-        self.dialog.title("Configuración de Steam")
-        self.dialog.geometry("500x300")
+        self.dialog.title("Configurar Steam")
         self.dialog.resizable(False, False)
+        self.dialog.configure(bg=colors["bg"])
         self.dialog.transient(self.parent)
-        self.dialog.grab_set()
-        
-        # Centrar el diálogo
-        self.dialog.geometry("+%d+%d" % (
-            self.parent.winfo_rootx() + 50,
-            self.parent.winfo_rooty() + 50
-        ))
+        try:
+            from config.settings import ICON_PATH
+            self.dialog.iconbitmap(str(ICON_PATH))
+        except Exception:
+            pass
         
         self._create_widgets()
+        self.dialog.bind("<Escape>", lambda e: self._cancel())
+        self.dialog.protocol("WM_DELETE_WINDOW", self._cancel)
+        
+        # Centrar sobre la ventana principal
+        self.dialog.update_idletasks()
+        width, height = self.dialog.winfo_reqwidth(), self.dialog.winfo_reqheight()
+        x = self.parent.winfo_rootx() + (self.parent.winfo_width() - width) // 2
+        y = self.parent.winfo_rooty() + (self.parent.winfo_height() - height) // 3
+        self.dialog.geometry(f"+{max(x, 0)}+{max(y, 0)}")
         apply_title_bar(self.dialog)
+        self.dialog.grab_set()
         
         # Esperar hasta que se cierre el diálogo
         self.dialog.wait_window()
@@ -197,93 +214,41 @@ class SteamConfigDialog:
     
     def _create_widgets(self):
         """Crea los widgets del diálogo."""
-        main_frame = tk.Frame(self.dialog, padx=20, pady=20)
+        colors = palette()
+        main_frame = tk.Frame(self.dialog, bg=colors["bg"], padx=22, pady=18)
         main_frame.pack(fill="both", expand=True)
         
-        # Título
-        title_label = tk.Label(
-            main_frame,
-            text="Configuración de Steam",
-            font=("Arial", 14, "bold")
-        )
-        title_label.pack(pady=(0, 15))
-        
-        # Descripción
-        desc_label = tk.Label(
-            main_frame,
-            text="Configure la ubicación de su instalación de Steam.\\n"
-                 "Esto es necesario para detectar las cuentas y configuraciones de Dota 2.",
-            justify="left",
-            wraplength=450
-        )
-        desc_label.pack(pady=(0, 15))
+        tk.Label(main_frame, text="¿Dónde está instalado Steam?", font=FONTS["dialog_title"],
+                 bg=colors["bg"], fg=colors["fg"]).pack(anchor="w")
+        tk.Label(main_frame, text="DotaTwin lo necesita para encontrar tus cuentas. "
+                                  "Normalmente se detecta solo.",
+                 font=FONTS["dialog"], bg=colors["bg"], fg=colors["muted"],
+                 justify="left", wraplength=440).pack(anchor="w", pady=(4, 14))
         
         # Ruta actual
-        current_frame = tk.Frame(main_frame)
-        current_frame.pack(fill="x", pady=(0, 15))
+        tk.Label(main_frame, text="CARPETA DE STEAM", font=FONTS["chip_label"],
+                 bg=colors["bg"], fg=colors["muted"]).pack(anchor="w")
+        self.path_var = tk.StringVar(value=self.current_path or "Sin configurar")
+        tk.Label(main_frame, textvariable=self.path_var, font=FONTS["dialog"],
+                 bg=colors["input"], fg=colors["fg"], anchor="w", padx=10, pady=7,
+                 highlightthickness=1, highlightbackground=colors["border"],
+                 width=52).pack(fill="x", pady=(4, 10))
         
-        tk.Label(current_frame, text="Ruta actual:", font=("Arial", 10, "bold")).pack(anchor="w")
+        # Acciones sobre la ruta
+        button_frame = tk.Frame(main_frame, bg=colors["bg"])
+        button_frame.pack(fill="x")
+        ttk.Button(button_frame, text="Detectar automáticamente", style="Accent.TButton",
+                   command=self._auto_detect).pack(side="left")
+        ttk.Button(button_frame, text="Elegir carpeta...", style="Dialog.TButton",
+                   command=self._manual_select).pack(side="left", padx=8)
         
-        self.path_var = tk.StringVar(value=self.current_path or "No configurada")
-        path_label = tk.Label(
-            current_frame,
-            textvariable=self.path_var,
-            relief="sunken",
-            bg=palette()["input"],
-            fg=palette()["fg"],
-            anchor="w",
-            padx=5,
-            pady=5
-        )
-        path_label.pack(fill="x", pady=(5, 0))
-        
-        # Botones de acción
-        button_frame = tk.Frame(main_frame)
-        button_frame.pack(fill="x", pady=(15, 0))
-        
-        # Detectar automáticamente
-        auto_btn = tk.Button(
-            button_frame,
-            text="Detectar automáticamente",
-            command=self._auto_detect,
-            bg="#4CAF50",
-            fg="white",
-            padx=20
-        )
-        auto_btn.pack(side="left", padx=(0, 5))
-        
-        # Seleccionar manualmente
-        manual_btn = tk.Button(
-            button_frame,
-            text="Seleccionar carpeta...",
-            command=self._manual_select,
-            bg="#2196F3",
-            fg="white",
-            padx=20
-        )
-        manual_btn.pack(side="left", padx=5)
-        
-        # Botones de diálogo
-        dialog_button_frame = tk.Frame(main_frame)
-        dialog_button_frame.pack(fill="x", pady=(20, 0))
-        
-        cancel_btn = tk.Button(
-            dialog_button_frame,
-            text="Cancelar",
-            command=self._cancel,
-            padx=20
-        )
-        cancel_btn.pack(side="right", padx=(5, 0))
-        
-        ok_btn = tk.Button(
-            dialog_button_frame,
-            text="Aceptar",
-            command=self._accept,
-            bg="#4CAF50",
-            fg="white",
-            padx=20
-        )
-        ok_btn.pack(side="right")
+        # Pie con Cancelar / Guardar
+        footer = tk.Frame(self.dialog, bg=colors["surface"], padx=16, pady=12)
+        footer.pack(fill="x")
+        ttk.Button(footer, text="Guardar", style="Success.TButton",
+                   command=self._accept).pack(side="right", padx=(8, 0))
+        ttk.Button(footer, text="Cancelar", style="Dialog.TButton",
+                   command=self._cancel).pack(side="right")
     
     def _auto_detect(self):
         """Detecta automáticamente Steam."""
@@ -292,13 +257,13 @@ class SteamConfigDialog:
         
         if paths:
             self.current_path = paths[0]
+            # La ruta encontrada aparece en el campo; no hace falta otro aviso
             self.path_var.set(self.current_path)
-            messagebox.showinfo("Steam detectado", f"Steam encontrado en:\\n{self.current_path}")
         else:
-            messagebox.showwarning(
+            _messages().show_warning(
                 "Steam no detectado",
-                "No se pudo detectar Steam automáticamente.\\n"
-                "Use 'Seleccionar carpeta...' para configurarlo manualmente."
+                "Usa Elegir carpeta... para indicarla a mano.",
+                heading="No se encontró Steam automáticamente"
             )
     
     def _manual_select(self):
@@ -315,9 +280,10 @@ class SteamConfigDialog:
                 self.current_path = steam_path
                 self.path_var.set(steam_path)
             else:
-                messagebox.showerror(
-                    "Ruta inválida",
-                    "La carpeta seleccionada no contiene una instalación válida de Steam."
+                _messages().show_error(
+                    "Carpeta no válida",
+                    "Elige la carpeta principal de Steam, la que contiene steam.exe.",
+                    heading="Esa carpeta no es la de Steam"
                 )
     
     def _accept(self):

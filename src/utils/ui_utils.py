@@ -6,13 +6,14 @@ de la interfaz gráfica, siguiendo principios DRY y reutilización.
 """
 
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk
 from typing import Dict, Any, Optional, Callable, List, Tuple
 from PIL import Image, ImageTk
 from pathlib import Path
 from ..models.domain_models import SteamAccount, PaginationInfo
 from config.settings import ICONS, AVATAR_SIZE, DEFAULT_AVATAR_COLOR
 from .theme import palette, apply_title_bar
+from .dialogs import ThemedDialog
 
 
 class StyleManager:
@@ -71,6 +72,54 @@ class StyleManager:
         
         style_name = style_map.get(style_type, "Normal.TFrame")
         frame.configure(style=style_name)
+
+
+class Tooltip:
+    """
+    Texto de ayuda que aparece al dejar el ratón sobre un widget.
+
+    Funciona también sobre botones deshabilitados, para explicar por qué lo están.
+    """
+
+    DELAY_MS = 450
+
+    def __init__(self, widget: tk.Widget, text: str):
+        self.widget = widget
+        self.text = text
+        self._window: Optional[tk.Toplevel] = None
+        self._after_id: Optional[str] = None
+        widget.bind("<Enter>", self._schedule, add="+")
+        widget.bind("<Leave>", self._hide, add="+")
+        widget.bind("<ButtonPress>", self._hide, add="+")
+
+    def _schedule(self, event=None) -> None:
+        self._cancel()
+        self._after_id = self.widget.after(self.DELAY_MS, self._show)
+
+    def _cancel(self) -> None:
+        if self._after_id:
+            self.widget.after_cancel(self._after_id)
+            self._after_id = None
+
+    def _show(self) -> None:
+        if self._window or not self.widget.winfo_exists():
+            return
+        colors = palette()
+        x = self.widget.winfo_rootx() + 10
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 6
+        self._window = tk.Toplevel(self.widget)
+        self._window.title("Ayuda")
+        self._window.wm_overrideredirect(True)
+        self._window.wm_geometry(f"+{x}+{y}")
+        tk.Label(self._window, text=self.text, justify='left', wraplength=280,
+                 bg=colors["surface"], fg=colors["fg"], relief='solid', borderwidth=1,
+                 font=("Segoe UI", 9), padx=8, pady=5).pack()
+
+    def _hide(self, event=None) -> None:
+        self._cancel()
+        if self._window:
+            self._window.destroy()
+            self._window = None
 
 
 class AvatarManager:
@@ -234,9 +283,9 @@ class PaginationWidget:
         
         # Botón anterior
         if self.pagination.has_previous:
-            btn_prev = IconHelper.create_icon_button(
-                self.frame, "anterior", "Anterior",
-                lambda: self._change_page(self.pagination.current_page - 1)
+            btn_prev = ttk.Button(
+                self.frame, text="‹ Anterior",
+                command=lambda: self._change_page(self.pagination.current_page - 1)
             )
             btn_prev.pack(side='left', padx=2)
             self._widgets.append(btn_prev)
@@ -247,7 +296,8 @@ class PaginationWidget:
             if page == self.pagination.current_page:
                 # Página actual como label
                 lbl = tk.Label(self.frame, text=str(page), 
-                             bg=palette()["selected_page"], width=3, relief='raised')
+                             bg=palette()["selected_page"], fg=palette()["select_fg"],
+                             width=3, relief='flat', font=("Segoe UI", 9, "bold"))
                 lbl.pack(side='left', padx=1)
                 self._widgets.append(lbl)
             else:
@@ -259,9 +309,9 @@ class PaginationWidget:
         
         # Botón siguiente
         if self.pagination.has_next:
-            btn_next = IconHelper.create_icon_button(
-                self.frame, "siguiente", "Siguiente",
-                lambda: self._change_page(self.pagination.current_page + 1)
+            btn_next = ttk.Button(
+                self.frame, text="Siguiente ›",
+                command=lambda: self._change_page(self.pagination.current_page + 1)
             )
             btn_next.pack(side='left', padx=2)
             self._widgets.append(btn_next)
@@ -290,42 +340,45 @@ class MessageHelper:
     """
     Helper para mostrar mensajes de manera consistente.
     
-    Centraliza la lógica de diálogos y notificaciones.
+    Usa los diálogos con el tema de la aplicación (``ThemedDialog``) en lugar
+    de los de Windows. ``icon_name`` se mantiene por compatibilidad y elige
+    el tipo de insignia: "success" muestra la verde.
     """
     
     @staticmethod
-    def show_info(title: str, message: str, icon_name: str = "info") -> None:
-        """Muestra un mensaje informativo."""
-        icon = IconHelper.get_icon(icon_name)
-        full_message = f"{icon} {message}" if icon else message
-        messagebox.showinfo(title, full_message)
+    def show_info(title: str, message: str, icon_name: str = "info",
+                  heading: Optional[str] = None) -> None:
+        """Muestra un mensaje informativo (o de éxito si icon_name="success")."""
+        kind = "success" if icon_name == "success" else "info"
+        ThemedDialog(None, title, message, kind, heading=heading).show()
     
     @staticmethod
-    def show_warning(title: str, message: str, icon_name: str = "warning") -> None:
+    def show_warning(title: str, message: str, icon_name: str = "warning",
+                     heading: Optional[str] = None) -> None:
         """Muestra un mensaje de advertencia."""
-        icon = IconHelper.get_icon(icon_name)
-        full_message = f"{icon} {message}" if icon else message
-        messagebox.showwarning(title, full_message)
+        ThemedDialog(None, title, message, "warning", heading=heading).show()
     
     @staticmethod
-    def show_error(title: str, message: str, icon_name: str = "error") -> None:
+    def show_error(title: str, message: str, icon_name: str = "error",
+                   heading: Optional[str] = None) -> None:
         """Muestra un mensaje de error."""
-        icon = IconHelper.get_icon(icon_name)
-        full_message = f"{icon} {message}" if icon else message
-        messagebox.showerror(title, full_message)
+        ThemedDialog(None, title, message, "error", heading=heading).show()
     
     @staticmethod
-    def ask_confirmation(title: str, message: str, 
-                        icon_name: str = "info") -> bool:
+    def ask_confirmation(title: str, message: str, icon_name: str = "info",
+                         confirm_text: str = "Sí", cancel_text: str = "No",
+                         confirm_style: str = "Accent.TButton",
+                         heading: Optional[str] = None) -> bool:
         """
         Solicita confirmación del usuario.
         
         Returns:
             True si el usuario confirma
         """
-        icon = IconHelper.get_icon(icon_name)
-        full_message = f"{icon} {message}" if icon else message
-        return messagebox.askyesno(title, full_message)
+        buttons = [(cancel_text, False, "Dialog.TButton"),
+                   (confirm_text, True, confirm_style)]
+        return bool(ThemedDialog(None, title, message, "question", buttons,
+                                 heading=heading).show())
 
 
 class ValidationHelper:

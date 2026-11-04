@@ -8,6 +8,7 @@ siguiendo el patrón Domain-Driven Design (DDD).
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any
 from pathlib import Path
+from datetime import datetime
 import json
 
 
@@ -227,11 +228,15 @@ class AppSelection:
         self.destino = None
     
     def set_origen(self, account: SteamAccount) -> None:
-        """Establece la cuenta origen."""
+        """Establece la cuenta origen (si era el destino, deja de serlo)."""
+        if account == self.destino:
+            self.destino = None
         self.origen = account
-    
+
     def set_destino(self, account: SteamAccount) -> None:
-        """Establece la cuenta destino."""
+        """Establece la cuenta destino (si era el origen, deja de serlo)."""
+        if account == self.origen:
+            self.origen = None
         self.destino = account
     
     def has_account(self, account: SteamAccount) -> bool:
@@ -390,14 +395,20 @@ class CopyOperation:
     def description(self) -> str:
         """Descripción de la operación."""
         return f"Copiar configuración: {self.origen.nombre} → {self.destino.nombre}"
+
+
+@dataclass
+class BackupInfo:
+    """Respaldo de la carpeta 570 de una cuenta, guardado antes de reemplazarla."""
+    steamid: str
+    created: datetime
+    path: Path
     
-    def get_backup_path(self) -> Path:
-        """Obtiene la ruta de backup para esta operación."""
-        timestamp = Path.cwd() / "backups" / f"backup_{self.destino.steamid}_{self.timestamp}"
-        return timestamp
+    MONTHS = ("ene", "feb", "mar", "abr", "may", "jun",
+              "jul", "ago", "sep", "oct", "nov", "dic")
     
     @property
-    def timestamp(self) -> str:
-        """Timestamp para identificar la operación."""
-        from datetime import datetime
-        return datetime.now().strftime("%Y%m%d_%H%M%S")
+    def created_text(self) -> str:
+        """Fecha legible, por ejemplo: 4 nov 2026, 03:44."""
+        c = self.created
+        return f"{c.day} {self.MONTHS[c.month - 1]} {c.year}, {c:%H:%M}"

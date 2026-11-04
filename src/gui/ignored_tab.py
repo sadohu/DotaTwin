@@ -9,9 +9,10 @@ import tkinter as tk
 from tkinter import ttk
 from typing import List, Callable, Optional
 from ..models.domain_models import SteamAccount, PaginationInfo
-from ..utils.ui_utils import AvatarManager, IconHelper, PaginationWidget, StyleManager
+from ..utils.ui_utils import (AvatarManager, IconHelper, PaginationWidget, StyleManager,
+                              Tooltip, MessageHelper)
 from ..utils.logging_utils import LoggingMixin
-from ..utils.theme import palette
+from ..utils.theme import palette, FONTS
 
 
 class IgnoredAccountRowWidget(LoggingMixin):
@@ -37,29 +38,35 @@ class IgnoredAccountRowWidget(LoggingMixin):
         # Callback para restaurar cuenta
         self.on_restore_account: Optional[Callable[[SteamAccount], None]] = None
         
-        # Crear frame principal
-        self.frame = ttk.Frame(parent, padding=5)
+        # Crear frame principal (mismo aspecto que las filas de la lista principal)
+        self.frame = ttk.Frame(parent, padding=(8, 6), style="Normal.TFrame")
         self._create_widgets()
-    
+
     def _create_widgets(self) -> None:
         """Crea todos los widgets de la fila."""
+        colors = palette()
+        background = colors["surface"]
+
         # Avatar
         avatar = self.avatar_manager.get_avatar(self.account)
-        self.avatar_label = tk.Label(self.frame, image=avatar)
-        self.avatar_label.grid(row=0, column=0, padx=5)
-        
-        # Información de la cuenta
-        info_text = self.account.display_name
-        self.info_label = tk.Label(self.frame, text=info_text, anchor='w')
-        self.info_label.grid(row=0, column=1, sticky='w', padx=10)
-        
+        self.avatar_label = tk.Label(self.frame, image=avatar, bg=background)
+        self.avatar_label.grid(row=0, column=0, rowspan=2, padx=(0, 10))
+
+        # Nombre y SteamID
+        self.info_label = tk.Label(self.frame, text=self.account.nombre, font=FONTS["name"],
+                                   anchor='w', bg=background)
+        self.info_label.grid(row=0, column=1, sticky='sw')
+        tk.Label(self.frame, text=f"SteamID {self.account.steamid}", font=FONTS["small"],
+                 fg=colors["muted"], anchor='w', bg=background
+                 ).grid(row=1, column=1, sticky='nw')
+
         # Botón restaurar
-        self.btn_restaurar = IconHelper.create_icon_button(
-            self.frame, "restaurar", "Restaurar",
-            self._on_restaurar_clicked
-        )
-        self.btn_restaurar.grid(row=0, column=2, padx=5)
-        
+        self.btn_restaurar = ttk.Button(self.frame, text="Restaurar", width=10,
+                                        style="Accent.TButton",
+                                        command=self._on_restaurar_clicked)
+        self.btn_restaurar.grid(row=0, column=2, rowspan=2)
+        Tooltip(self.btn_restaurar, "Volver a mostrar esta cuenta en Cuentas Disponibles")
+
         # Configurar expansión de columnas
         self.frame.columnconfigure(1, weight=1)
     
@@ -114,11 +121,11 @@ class IgnoredAccountsListWidget(LoggingMixin):
     def _create_widgets(self) -> None:
         """Crea todos los widgets del componente."""
         # Título
-        title_text = IconHelper.text_with_icon("ignoradas", "Cuentas ignoradas")
+        title_text = "Cuentas ignoradas"
         self.title_label = tk.Label(
             self.parent,
             text=title_text,
-            font=("Arial", 12, "bold")
+            font=FONTS["title"]
         )
         self.title_label.pack(pady=10)
         
@@ -211,8 +218,9 @@ class IgnoredAccountsListWidget(LoggingMixin):
         """Muestra mensaje cuando no hay cuentas ignoradas."""
         empty_label = tk.Label(
             self.accounts_frame,
-            text="No hay cuentas ignoradas",
-            font=("Arial", 10),
+            text="No hay cuentas ignoradas\nPulsa Ignorar en una cuenta para ocultarla de la lista principal.",
+            justify="center",
+            font=FONTS["step"],
             fg=palette()["muted"]
         )
         empty_label.pack(pady=20)
@@ -290,13 +298,12 @@ class IgnoredTabController(LoggingMixin):
         Args:
             account: Cuenta a restaurar
         """
-        from ..utils.ui_utils import MessageHelper
-        
         # Confirmar restauración
         confirm = MessageHelper.ask_confirmation(
-            "Confirmar restauración",
-            f"¿Deseas restaurar la cuenta '{account.nombre}'?\n\n"
-            f"Volverá a aparecer en la lista principal."
+            "Restaurar cuenta",
+            "Volverá a aparecer en la lista de Cuentas Disponibles.",
+            heading=f"¿Restaurar {account.nombre}?",
+            confirm_text="Restaurar", cancel_text="Cancelar"
         )
         
         if confirm and self.on_account_restored:
@@ -331,11 +338,11 @@ class SimpleIgnoredTabWidget(LoggingMixin):
     def _create_widgets(self) -> None:
         """Crea la interfaz básica."""
         # Título
-        title_text = IconHelper.text_with_icon("ignoradas", "Cuentas ignoradas")
+        title_text = "Cuentas ignoradas"
         title_label = tk.Label(
             self.parent,
             text=title_text,
-            font=("Arial", 12, "bold")
+            font=FONTS["title"]
         )
         title_label.pack(pady=10)
         
@@ -387,8 +394,9 @@ class SimpleIgnoredTabWidget(LoggingMixin):
         """Muestra mensaje cuando no hay cuentas."""
         empty_label = tk.Label(
             self.accounts_frame,
-            text="No hay cuentas ignoradas",
-            font=("Arial", 10),
+            text="No hay cuentas ignoradas\nPulsa Ignorar en una cuenta para ocultarla de la lista principal.",
+            justify="center",
+            font=FONTS["step"],
             fg=palette()["muted"]
         )
         empty_label.pack(pady=20)
@@ -396,11 +404,11 @@ class SimpleIgnoredTabWidget(LoggingMixin):
     
     def _on_restore_account(self, account: SteamAccount) -> None:
         """Maneja la restauración de cuenta."""
-        from ..utils.ui_utils import MessageHelper
-        
         confirm = MessageHelper.ask_confirmation(
-            "Confirmar restauración",
-            f"¿Deseas restaurar la cuenta '{account.nombre}'?"
+            "Restaurar cuenta",
+            "Volverá a aparecer en la lista de Cuentas Disponibles.",
+            heading=f"¿Restaurar {account.nombre}?",
+            confirm_text="Restaurar", cancel_text="Cancelar"
         )
         
         if confirm and self.on_account_restored:

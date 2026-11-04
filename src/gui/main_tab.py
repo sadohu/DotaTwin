@@ -11,11 +11,12 @@ from typing import List, Callable, Optional
 from ..models.domain_models import SteamAccount, PaginationInfo, AppSelection
 from ..utils.ui_utils import (
     AvatarManager, IconHelper, PaginationWidget, 
-    MessageHelper, WidgetFactory, StyleManager
+    MessageHelper, WidgetFactory, StyleManager, Tooltip
 )
 from ..utils.logging_utils import LoggingMixin
-from ..utils.theme import palette
-from config.settings import ITEMS_PER_PAGE_OPTIONS
+from ..utils.theme import palette, FONTS
+from ..utils.icons import get_icon
+from config.settings import ITEMS_PER_PAGE_OPTIONS, AVATAR_SIZE
 
 
 class AccountRowWidget(LoggingMixin):
@@ -46,48 +47,82 @@ class AccountRowWidget(LoggingMixin):
         self.on_ignore_account: Optional[Callable[[SteamAccount], None]] = None
         
         # Crear frame principal
-        self.frame = ttk.Frame(parent, padding=5)
+        self.frame = ttk.Frame(parent, padding=(8, 6))
         self._create_widgets()
-    
+
     def _create_widgets(self) -> None:
         """Crea todos los widgets de la fila."""
+        colors = palette()
+
         # Avatar
         avatar = self.avatar_manager.get_avatar(self.account)
         self.avatar_label = tk.Label(self.frame, image=avatar)
-        self.avatar_label.grid(row=0, column=0, padx=5)
-        
-        # Información de la cuenta
-        info_text = self.account.display_name
-        self.info_label = tk.Label(self.frame, text=info_text, anchor='w')
-        self.info_label.grid(row=0, column=1, sticky='w', padx=10)
-        self.style_manager.apply_account_style(
-            self.frame, "normal", self.avatar_label, self.info_label)
-        
-        # Botones de acción
-        self.btn_origen = IconHelper.create_icon_button(
-            self.frame, "origen", "Origen",
-            self._on_origen_clicked
-        )
-        self.btn_origen.grid(row=0, column=2, padx=5)
+        self.avatar_label.grid(row=0, column=0, rowspan=2, padx=(0, 10))
+
+        # Nombre y, debajo, el dato secundario
+        self.name_label = tk.Label(self.frame, text=self.account.nombre,
+                                   font=FONTS["name"], anchor='w')
+        self.name_label.grid(row=0, column=1, sticky='sw')
+
+        if self.account.config_exists:
+            detail = f"SteamID {self.account.steamid}"
+        else:
+            detail = "Nunca abrió Dota 2 · solo puede ser destino"
+        self.detail_label = tk.Label(self.frame, text=detail, font=FONTS["small"],
+                                     fg=colors["muted"], anchor='w')
+        self.detail_label.grid(row=1, column=1, sticky='nw')
+
+        # Insignia ORIGEN / DESTINO (solo visible en las cuentas elegidas)
+        self.badge_label = tk.Label(self.frame, font=FONTS["badge"],
+                                    fg=colors["on_strong"], padx=8, pady=2)
+        self.badge_label.grid(row=0, column=2, rowspan=2, padx=10)
+        self.badge_label.grid_remove()
+
+        # Botones de acción: azul origen, verde destino, gris ignorar
+        self.btn_origen = ttk.Button(self.frame, text="Origen", width=9,
+                                     style="Origen.TButton",
+                                     command=self._on_origen_clicked)
+        self.btn_origen.grid(row=0, column=3, rowspan=2, padx=4)
 
         # Sin carpeta 570 no hay nada que copiar: la cuenta solo sirve como destino
-        if not self.account.config_exists:
+        if self.account.config_exists:
+            Tooltip(self.btn_origen, "Copiar la configuración DESDE esta cuenta")
+        else:
             self.btn_origen.config(state='disabled')
+            Tooltip(self.btn_origen, "Esta cuenta nunca abrió Dota 2: no tiene "
+                                     "configuración que copiar, solo puede ser destino")
 
-        self.btn_destino = IconHelper.create_icon_button(
-            self.frame, "destino", "Destino", 
-            self._on_destino_clicked
-        )
-        self.btn_destino.grid(row=0, column=3, padx=5)
-        
-        self.btn_ignorar = IconHelper.create_icon_button(
-            self.frame, "ignorar", "Ignorar",
-            self._on_ignorar_clicked
-        )
-        self.btn_ignorar.grid(row=0, column=4, padx=5)
-        
+        self.btn_destino = ttk.Button(self.frame, text="Destino", width=9,
+                                      style="Destino.TButton",
+                                      command=self._on_destino_clicked)
+        self.btn_destino.grid(row=0, column=4, rowspan=2, padx=4)
+        Tooltip(self.btn_destino, "Copiar la configuración A esta cuenta")
+
+        self.btn_ignorar = ttk.Button(self.frame, text="Ignorar", width=8,
+                                      command=self._on_ignorar_clicked)
+        self.btn_ignorar.grid(row=0, column=5, rowspan=2, padx=(4, 0))
+        Tooltip(self.btn_ignorar, "Ocultar esta cuenta de la lista "
+                                  "(se recupera en Cuentas Ignoradas)")
+
         # Configurar expansión de columnas
         self.frame.columnconfigure(1, weight=1)
+        self._apply_row_style("normal")
+
+    def _apply_row_style(self, style_type: str) -> None:
+        """Pinta la fila y su insignia según sea origen, destino o normal."""
+        self.style_manager.apply_account_style(
+            self.frame, style_type,
+            self.avatar_label, self.name_label, self.detail_label)
+
+        colors = palette()
+        if style_type == "origen":
+            self.badge_label.config(text="ORIGEN", bg=colors["origen_strong"])
+            self.badge_label.grid()
+        elif style_type == "destino":
+            self.badge_label.config(text="DESTINO", bg=colors["destino_strong"])
+            self.badge_label.grid()
+        else:
+            self.badge_label.grid_remove()
     
     def _on_origen_clicked(self) -> None:
         """Maneja el clic en el botón origen."""
@@ -120,12 +155,11 @@ class AccountRowWidget(LoggingMixin):
             style_type = "destino"
         else:
             style_type = "normal"
-        self.style_manager.apply_account_style(
-            self.frame, style_type, self.avatar_label, self.info_label)
-    
+        self._apply_row_style(style_type)
+
     def pack(self, **kwargs) -> None:
         """Empaqueta el frame principal."""
-        self.frame.pack(fill='x', padx=5, pady=3, **kwargs)
+        self.frame.pack(fill='x', padx=(0, 8), pady=3, **kwargs)
     
     def destroy(self) -> None:
         """Destruye el widget."""
@@ -167,7 +201,6 @@ class PaginationControlWidget(LoggingMixin):
             self.controls_frame, 
             "Mostrar", 
             [str(x) for x in ITEMS_PER_PAGE_OPTIONS],
-            icon_name="pagina",
             width=5
         )
         
@@ -283,11 +316,11 @@ class AccountListWidget(LoggingMixin):
         self.parent.grid_columnconfigure(0, weight=1)
         
         # Título
-        title_text = IconHelper.text_with_icon("cuentas", self.title)
+        title_text = self.title
         self.title_label = tk.Label(
             self.parent, 
             text=title_text, 
-            font=("Arial", 12, "bold")
+            font=FONTS["title"]
         )
         self.title_label.grid(row=0, column=0, pady=10, sticky='ew')
         
@@ -501,51 +534,84 @@ class StatusWidget(LoggingMixin):
         
         # Estado actual
         self.selection = AppSelection()
-        
+        self.avatar_manager = AvatarManager()
+
         self._create_widgets()
     
     def _create_widgets(self) -> None:
-        """Crea los widgets del estado."""
-        # Frame contenedor para el estado
+        """Crea el resumen: tarjeta ORIGEN → tarjeta DESTINO y el paso a seguir."""
+        colors = palette()
         self.status_frame = ttk.Frame(self.parent)
-        
-        # Separador visual
-        separator = ttk.Separator(self.status_frame, orient='horizontal')
-        separator.pack(fill='x', pady=(0, 5))
-        
-        self.status_label = tk.Label(
-            self.status_frame,
-            text="Selecciona origen y destino",
-            font=("Arial", 11, "bold"),
-            fg=palette()["status_info"]
-        )
-        self.status_label.pack(pady=5)
-    
+        self._blank_avatar = tk.PhotoImage(width=AVATAR_SIZE[0], height=AVATAR_SIZE[1])
+
+        cards = ttk.Frame(self.status_frame)
+        cards.pack(pady=(4, 6))
+        self.origen_card = self._create_card(cards, "ORIGEN", "origen")
+        self.origen_card["frame"].pack(side='left')
+        tk.Label(cards, text="→", font=("Segoe UI", 20, "bold"),
+                 fg=colors["muted"]).pack(side='left', padx=14)
+        self.destino_card = self._create_card(cards, "DESTINO", "destino")
+        self.destino_card["frame"].pack(side='left')
+
+        # Mantener el nombre status_label: muestra el paso actual
+        self.status_label = tk.Label(self.status_frame, font=FONTS["step"],
+                                     fg=colors["status_info"])
+        self.status_label.pack()
+
+    def _create_card(self, parent: tk.Widget, title: str, role: str) -> dict:
+        """Tarjeta con una franja de color, el avatar, el rol y el nombre de la cuenta."""
+        colors = palette()
+        frame = tk.Frame(parent, bg=colors["surface"], highlightthickness=1,
+                         highlightbackground=colors["border"])
+        tk.Frame(frame, bg=colors[f"{role}_strong"], width=5).pack(side='left', fill='y')
+        # Imagen vacía del tamaño del avatar hasta que se elija una cuenta
+        avatar = tk.Label(frame, bg=colors["surface"], image=self._blank_avatar)
+        avatar.pack(side='left', padx=(12, 0))
+        body = tk.Frame(frame, bg=colors["surface"], padx=10, pady=6)
+        body.pack(side='left')
+        tk.Label(body, text=title, font=FONTS["chip_label"], bg=colors["surface"],
+                 fg=colors[f"{role}_strong"]).pack(anchor='w')
+        name = tk.Label(body, font=FONTS["chip"], bg=colors["surface"], width=20,
+                        anchor='w')
+        name.pack(anchor='w')
+        return {"frame": frame, "name": name, "avatar": avatar}
+
     def position_fixed(self, row: int, column: int) -> None:
         """Posiciona el widget en una posición fija usando grid."""
-        self.status_frame.grid(row=row, column=column, sticky='ew', pady=5)
-    
+        self.status_frame.grid(row=row, column=column, sticky='ew', pady=(8, 0))
+
     def update_status(self, selection: AppSelection) -> None:
         """
-        Actualiza el estado mostrado.
-        
+        Actualiza las tarjetas y el texto del paso a seguir.
+
         Args:
             selection: Selección actual
         """
         self.selection = selection
-        
-        # Determinar mensaje y color
-        message = selection.copy_description
-        
         colors = palette()
-        if not selection.is_complete:
+
+        for card, account in ((self.origen_card, selection.origen),
+                              (self.destino_card, selection.destino)):
+            if account:
+                card["name"].config(text=account.nombre, fg=colors["fg"])
+                card["avatar"].config(image=self.avatar_manager.get_avatar(account))
+            else:
+                card["name"].config(text="Sin elegir", fg=colors["muted"])
+                card["avatar"].config(image=self._blank_avatar)
+
+        if not selection.origen:
+            message = "Paso 1 de 3 · Pulsa Origen en la cuenta que ya tiene tu configuración"
+            color = colors["status_info"]
+        elif not selection.destino:
+            message = "Paso 2 de 3 · Pulsa Destino en la cuenta donde quieres copiarla"
             color = colors["status_info"]
         elif not selection.is_valid:
+            message = selection.copy_description
             color = colors["status_error"]
         else:
+            message = "Paso 3 de 3 · Todo listo: pulsa Copiar configuración"
             color = colors["status_ok"]
-        
-        # Actualizar label
+
         self.status_label.config(text=message, fg=color)
         self.log_method_call("update_status", message=message)
 
@@ -582,20 +648,30 @@ class ActionButtonsWidget(LoggingMixin):
         buttons_frame = ttk.Frame(self.buttons_container)
         buttons_frame.pack(pady=10)
         
-        # Botón cancelar
-        self.btn_cancelar = IconHelper.create_icon_button(
-            buttons_frame, "cancelar", "Cancelar selección",
-            self._on_cancel_clicked
+        colors = palette()
+
+        # Rojo con papelera: borrar la selección (se activa al elegir alguna cuenta)
+        self.btn_cancelar = ttk.Button(
+            buttons_frame, text="Limpiar selección", style="Danger.TButton",
+            image=self._icon("trash", colors), compound='left',
+            command=self._on_cancel_clicked, state='disabled'
         )
-        self.btn_cancelar.pack(side='left', padx=10)
-        
-        # Botón copiar
-        self.btn_copiar = IconHelper.create_icon_button(
-            buttons_frame, "copiar", "Copiar configuración",
-            self._on_copy_clicked,
-            state='disabled'
+        self.btn_cancelar.pack(side='left', padx=8)
+        Tooltip(self.btn_cancelar, "Quitar el origen y el destino elegidos")
+
+        # Verde con icono de copiar: la acción principal (se activa cuando todo está listo)
+        self.btn_copiar = ttk.Button(
+            buttons_frame, text="Copiar configuración", style="Primary.TButton",
+            image=self._icon("copy", colors, size=18), compound='left',
+            command=self._on_copy_clicked, state='disabled'
         )
-        self.btn_copiar.pack(side='left', padx=10)
+        self.btn_copiar.pack(side='left', padx=8)
+
+    @staticmethod
+    def _icon(name: str, colors: dict, size: int = 16) -> tuple:
+        """Icono blanco en reposo y gris cuando el botón está deshabilitado."""
+        return (get_icon(name, colors["on_strong"], size),
+                'disabled', get_icon(name, colors["muted"], size))
     
     def position_fixed(self, row: int, column: int) -> None:
         """Posiciona el widget en una posición fija usando grid."""
@@ -611,10 +687,11 @@ class ActionButtonsWidget(LoggingMixin):
         self.selection = selection
         
         # Habilitar/deshabilitar botón copiar
-        if selection.is_valid:
-            self.btn_copiar.config(state='normal')
-        else:
-            self.btn_copiar.config(state='disabled')
+        self.btn_copiar.config(state='normal' if selection.is_valid else 'disabled')
+
+        # Limpiar solo tiene sentido si hay algo elegido
+        has_selection = selection.origen is not None or selection.destino is not None
+        self.btn_cancelar.config(state='normal' if has_selection else 'disabled')
     
     def _on_copy_clicked(self) -> None:
         """Maneja el clic en copiar."""

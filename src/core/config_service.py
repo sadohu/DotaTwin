@@ -6,16 +6,23 @@ de copia de archivos siguiendo principios de responsabilidad única.
 """
 
 import os
+import re
 import shutil
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Any, Tuple
-from ..models.domain_models import AppConfig, CopyOperation, SteamAccount
-from config.settings import CACHE_FILE, CONFIG_PATTERNS, EXCLUDE_FOLDERS
+from ..models.domain_models import AppConfig, BackupInfo, CopyOperation, SteamAccount
+from config.settings import (CACHE_FILE, CONFIG_PATTERNS, EXCLUDE_FOLDERS,
+                             BACKUPS_DIR, MAX_BACKUPS_PER_ACCOUNT)
 
 logger = logging.getLogger(__name__)
 
 REMOTECACHE_FILE = "remotecache.vdf"
+
+# Respaldos: backups/backup_<steamid>_<AAAAMMDD>_<HHMMSS>[_n]
+BACKUP_TIME_FORMAT = "%Y%m%d_%H%M%S"
+BACKUP_NAME_PATTERN = re.compile(r"^backup_(?P<steamid>\d+)_(?P<stamp>\d{8}_\d{6})(?:_\d+)?$")
 
 
 class ConfigurationService:
@@ -196,14 +203,16 @@ class FileCopyService:
     y manejo de errores robusto.
     """
     
-    def __init__(self, enable_backup: bool = True):
+    def __init__(self, enable_backup: bool = True, backup_dir: Optional[Path] = None):
         """
         Inicializa el servicio de copia.
-        
+
         Args:
             enable_backup: Habilita backups automáticos
+            backup_dir: Carpeta de respaldos (por defecto, "backups" junto al exe)
         """
         self.enable_backup = enable_backup
+        self.backup_dir = Path(backup_dir) if backup_dir else BACKUPS_DIR
     
     def copy_configuration(self, operation: CopyOperation) -> Tuple[bool, str]:
         """
@@ -252,20 +261,93 @@ class FileCopyService:
         Returns:
             True si se creó el backup correctamente
         """
+        return self.create_backup(operation.destino.steamid, operation.destino.ruta) is not False
+
+    def create_backup(self, steamid: str, config_path: Path):
+        """
+        Guarda una copia de la carpeta 570 de una cuenta.
+
+        Args:
+            steamid: SteamID de la cuenta
+            config_path: Carpeta 570 de la cuenta
+
+        Returns:
+            Ruta del respaldo, None si no había nada que respaldar o False si falló
+        """
         try:
-            backup_path = operation.get_backup_path()
-            
-            if operation.destino.ruta.exists():
-                backup_path.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copytree(operation.destino.ruta, backup_path)
-                logger.info(f"Backup creado en: {backup_path}")
-                return True
-            
-            return True  # No hay nada que respaldar
-            
+            if not config_path.is_dir() or not any(config_path.iterdir()):
+                return None  # No hay nada que respaldar
+
+            backup_path = self._new_backup_path(steamid)
+            backup_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(config_path, backup_path)
+            logger.info(f"Backup creado en: {backup_path}")
+            return backup_path
+
         except (OSError, shutil.Error) as e:
             logger.error(f"Error creando backup: {e}")
             return False
+
+    def _new_backup_path(self, steamid: str) -> Path:
+        """Ruta libre backups/backup_<steamid>_<fecha>_<hora> (con sufijo si ya existe)."""
+        stamp = datetime.now().strftime(BACKUP_TIME_FORMAT)
+        path = self.backup_dir / f"backup_{steamid}_{stamp}"
+        counter = 2
+        while path.exists():
+            path = self.backup_dir / f"backup_{steamid}_{stamp}_{counter}"
+            counter += 1
+        return path
+
+    def list_backups(self, steamid: Optional[str] = None) -> List[BackupInfo]:
+        """
+        Lista los respaldos guardados, del más reciente al más antiguo.
+
+        Args:
+            steamid: Si se indica, solo los de esa cuenta
+        """
+        backups = []
+        if not self.backup_dir.is_dir():
+            return backups
+
+        for folder in self.backup_dir.iterdir():
+            match = BACKUP_NAME_PATTERN.match(folder.name)
+            if not folder.is_dir() or not match:
+                continue
+            if steamid and match.group("steamid") != steamid:
+                continue
+            try:
+                created = datetime.strptime(match.group("stamp"), BACKUP_TIME_FORMAT)
+            except ValueError:
+                continue
+            backups.append(BackupInfo(match.group("steamid"), created, folder))
+
+        return sorted(backups, key=lambda b: (b.created, b.path.name), reverse=True)
+
+    def restore_backup(self, backup: BackupInfo, config_path: Path) -> Tuple[bool, str]:
+        """
+        Restaura un respaldo en la carpeta 570 de su cuenta.
+
+        Antes guarda un respaldo de la configuración actual, para poder deshacerlo.
+        Se conserva el remotecache.vdf actual de la cuenta, igual que al copiar.
+
+        Args:
+            backup: Respaldo a restaurar
+            config_path: Carpeta 570 de la cuenta
+
+        Returns:
+            Tupla (éxito, mensaje)
+        """
+        if not backup.path.is_dir():
+            return False, "El respaldo ya no existe."
+
+        if self.create_backup(backup.steamid, config_path) is False:
+            return False, "No se pudo guardar la configuración actual antes de restaurar."
+
+        if not self._copy_folder_recursive(backup.path, config_path):
+            return False, "No se pudieron copiar los archivos del respaldo."
+
+        logger.info(f"Respaldo restaurado: {backup.path} -> {config_path}")
+        return True, "Respaldo restaurado"
     
     def _copy_folder_recursive(self, origen: Path, destino: Path) -> bool:
         """
@@ -366,30 +448,20 @@ class FileCopyService:
         
         return total_size
     
-    def cleanup_old_backups(self, max_backups: int = 10) -> None:
+    def cleanup_old_backups(self, max_per_account: int = MAX_BACKUPS_PER_ACCOUNT) -> None:
         """
-        Limpia backups antiguos manteniendo solo los más recientes.
-        
+        Borra los respaldos antiguos dejando los más recientes de cada cuenta.
+
         Args:
-            max_backups: Número máximo de backups a mantener
+            max_per_account: Respaldos que se conservan por cuenta
         """
         try:
-            backup_dir = Path.cwd() / "backups"
-            
-            if not backup_dir.exists():
-                return
-            
-            # Obtener todos los backups ordenados por fecha
-            backups = sorted(
-                [d for d in backup_dir.iterdir() if d.is_dir()],
-                key=lambda x: x.stat().st_mtime,
-                reverse=True
-            )
-            
-            # Eliminar backups antiguos
-            for backup in backups[max_backups:]:
-                shutil.rmtree(backup)
-                logger.info(f"Backup eliminado: {backup}")
-                
+            kept: Dict[str, int] = {}
+            for backup in self.list_backups():  # del más reciente al más antiguo
+                kept[backup.steamid] = kept.get(backup.steamid, 0) + 1
+                if kept[backup.steamid] > max_per_account:
+                    shutil.rmtree(backup.path)
+                    logger.info(f"Backup eliminado: {backup.path}")
+
         except Exception as e:
             logger.error(f"Error limpiando backups: {e}")
