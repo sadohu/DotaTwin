@@ -15,7 +15,7 @@
 - [🛠️ Requisitos del Sistema](#️-requisitos-del-sistema)
 - [📦 Instalación](#-instalación)
   - [Opción 1: Ejecutable (Recomendado)](#opción-1-ejecutable-recomendado-para-usuarios)
-  - [Opción 2: Portable (Sin alertas)](#opción-2-portable-sin-alertas-de-windows)
+  - [Opción 2: Portable](#opción-2-portable)
   - [Opción 3: Código Fuente](#opción-3-código-fuente-recomendado-para-desarrolladores)
 - [�️ Alerta de Seguridad de Windows](#️-alerta-de-seguridad-de-windows)
 - [�🚀 Uso](#-uso)
@@ -125,7 +125,7 @@ La versión 2.0 presenta una **refactorización completa** con arquitectura modu
 
 - **Sistema Operativo**: Windows 7/8/10/11
 - **Python**: 3.7 o superior (para ejecutar desde código fuente)
-- **Steam**: Instalado con al menos una cuenta que tenga Dota 2
+- **Steam**: Instalado con al menos una cuenta autenticada
 - **Librerías Python** (instalación automática con `pip install -r requirements.txt`):
   - `tkinter` (incluida con Python)
   - `Pillow` (PIL) - Para manejo de imágenes
@@ -145,15 +145,14 @@ La versión 2.0 presenta una **refactorización completa** con arquitectura modu
 
 > ⚠️ **Nota**: Puede aparecer una alerta de Windows SmartScreen (ver sección de [Alerta de Seguridad](#️-alerta-de-seguridad-de-windows))
 
-### Opción 2: Portable (Sin alertas de Windows)
-**🆕 ¡Nuevo en v3.1.0!** - Versión portable que evita las alertas de Windows SmartScreen
+### Opción 2: Portable
+**🆕 ¡Nuevo en v3.1.0!** - Versión portable que no requiere instalación
 
 1. **Descargar** el archivo `DotaTwin_v3.1.0_Portable.zip` desde [GitHub Releases](https://github.com/sadohu/DotaTwin/releases)
 2. **Extraer** en cualquier carpeta
 3. **Ejecutar** `run.bat` para iniciar
 
 **✅ Ventajas del portable**:
-- Sin alertas de Windows SmartScreen
 - No requiere instalación
 - Código fuente visible y auditable
 - Incluye Python embebido (~21 MB)
@@ -188,19 +187,16 @@ Windows SmartScreen puede mostrar mensajes como:
 - *"Aplicación no reconocida"*
 - *"El editor no pudo ser verificado"*
 
-**Esto es NORMAL** y ocurre porque:
+Esto puede ocurrir y normalmente se debe a que:
 - DotaTwin es un ejecutable **no firmado digitalmente** (requiere certificado costoso ~$300/año)
 - Es una aplicación **nueva** sin suficiente "reputación" en Windows
-- Windows es **extremadamente cauteloso** con aplicaciones de desarrolladores independientes
+- Windows SmartScreen evalúa la reputación del editor y del archivo descargado
+
+El formato no es la causa principal: convertir el ejecutable a MSI no elimina la alerta si el instalador tampoco está firmado. Un ZIP portable también puede mostrar advertencias al descargar o extraer archivos.
 
 ### ✅ **¿Es seguro DotaTwin?**
 
-**¡SÍ, absolutamente!** DotaTwin es **100% seguro**:
-- ✅ **Código abierto**: Todo el código fuente está disponible en GitHub
-- ✅ **Sin malware**: Solo copia archivos de configuración de Dota 2
-- ✅ **Sin acceso a red**: No se conecta a internet ni envía datos
-- ✅ **Sin modificaciones del sistema**: Solo lee/escribe archivos .vcfg de Steam
-- ✅ **Desarrollado responsablemente**: Código revisable y transparente
+**Verifica el origen antes de ejecutarlo.** El código fuente está disponible en GitHub y la aplicación está diseñada para leer y escribir configuraciones locales de Steam. Aun así, ninguna aplicación sin firma debe considerarse automáticamente segura.
 
 ### 🚀 **Cómo proceder con seguridad**
 
@@ -219,7 +215,7 @@ Si aparece la alerta de Windows SmartScreen:
 
 ### 🤝 **Alternativas si prefieres mayor seguridad**
 
-- **🆕 Usar versión portable**: Descarga `DotaTwin_v3.1.0_Portable.zip` - **Sin alertas de Windows**
+- **Usar versión portable**: Descarga `DotaTwin_v3.1.0_Portable.zip` - no requiere instalación, pero puede seguir mostrando una advertencia
 - **Ejecutar desde código fuente**: Descargar el proyecto y ejecutar con `python main.py`
 - **Revisar el código**: Todo está disponible en GitHub para inspección
 - **Usar antivirus**: Escanear el archivo con tu antivirus preferido

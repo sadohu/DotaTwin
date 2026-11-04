@@ -80,8 +80,75 @@ class TestSteamConfiguration(unittest.TestCase):
             # Configurar ruta personalizada
             result = steam_service.set_custom_steam_path(temp_dir)
             self.assertTrue(result)
-            self.assertEqual(steam_service.custom_steam_path, temp_dir)
-            self.assertEqual(steam_service.steam_userdata_path, userdata_dir)
+            self.assertEqual(steam_service.custom_steam_path, str(Path(temp_dir)))
+            self.assertEqual(steam_service.steam_userdata_path, Path(userdata_dir))
+
+    def test_account_without_dota_folder_is_listed(self):
+        """Lista una cuenta sin carpeta 570 sin crearla durante la detección."""
+        steam_service = SteamAccountService()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            userdata_path = Path(temp_dir) / "userdata"
+            user_path = userdata_path / "123456789"
+            user_path.mkdir(parents=True)
+            steam_service.steam_userdata_path = userdata_path
+
+            account = steam_service._process_steam_folder("123456789")
+
+            self.assertIsNotNone(account)
+            self.assertFalse(account.config_exists)
+            self.assertFalse(user_path.joinpath("570").exists())
+
+    def test_login_users_are_read(self):
+        """Convierte los SteamID64 de loginusers.vdf a Steam3 ID con su nombre."""
+        steam_service = SteamAccountService()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            userdata_path = Path(temp_dir) / "userdata"
+            userdata_path.mkdir()
+            config_path = Path(temp_dir) / "config"
+            config_path.mkdir()
+            config_path.joinpath("loginusers.vdf").write_text(
+                '"users"\n{\n\t"76561197960265729"\n\t{\n\t\t"PersonaName"\t\t"Nuevo"\n\t}\n}\n',
+                encoding="utf-8"
+            )
+            steam_service.steam_userdata_path = userdata_path
+
+            self.assertEqual(steam_service._read_login_users(), {"1": "Nuevo"})
+
+    def test_copy_creates_dota_folder_and_keeps_remotecache(self):
+        """Crea la 570 del destino y conserva su remotecache.vdf propio."""
+        from src.core.config_service import FileCopyService
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            origen = Path(temp_dir) / "userdata" / "1" / "570"
+            origen.joinpath("local", "cfg").mkdir(parents=True)
+            origen.joinpath("local", "cfg", "user_keys_0_slot0.vcfg").write_text("teclas")
+            origen.joinpath("remotecache.vdf").write_text("nube origen")
+
+            destino_nuevo = Path(temp_dir) / "userdata" / "2" / "570"
+            self.assertTrue(FileCopyService()._copy_folder_recursive(origen, destino_nuevo))
+            self.assertEqual(
+                destino_nuevo.joinpath("local", "cfg", "user_keys_0_slot0.vcfg").read_text(), "teclas")
+            self.assertFalse(destino_nuevo.joinpath("remotecache.vdf").exists())
+
+            destino_existente = Path(temp_dir) / "userdata" / "3" / "570"
+            destino_existente.mkdir(parents=True)
+            destino_existente.joinpath("remotecache.vdf").write_text("nube destino")
+            self.assertTrue(FileCopyService()._copy_folder_recursive(origen, destino_existente))
+            self.assertEqual(destino_existente.joinpath("remotecache.vdf").read_text(), "nube destino")
+
+    def test_non_account_userdata_folder_is_ignored(self):
+        """No crea carpetas de juego fuera de directorios de cuentas Steam."""
+        steam_service = SteamAccountService()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            userdata_path = Path(temp_dir) / "userdata"
+            userdata_path.joinpath("config").mkdir(parents=True)
+            steam_service.steam_userdata_path = userdata_path
+
+            self.assertIsNone(steam_service._process_steam_folder("config"))
+            self.assertFalse(userdata_path.joinpath("config", "570").exists())
     
     def test_app_config_custom_steam_path(self):
         """Test persistencia de ruta personalizada en AppConfig."""
@@ -144,7 +211,7 @@ class TestSteamConfiguration(unittest.TestCase):
         with patch('os.path.exists', return_value=True):
             expected_userdata = os.path.join(custom_steam_path, "userdata")
             actual_userdata = steam_service._get_steam_userdata_path()
-            self.assertEqual(actual_userdata, expected_userdata)
+            self.assertEqual(actual_userdata, Path(expected_userdata))
     
     def test_steam_service_initialization_with_config(self):
         """Test inicialización del servicio Steam con configuración."""

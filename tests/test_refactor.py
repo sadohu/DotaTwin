@@ -36,7 +36,7 @@ class TestDomainModels(unittest.TestCase):
         self.assertEqual(account.steamid, "123456789")
         self.assertEqual(account.nombre, "Test User")
         self.assertFalse(account.has_avatar)
-        self.assertEqual(account.display_name, "Test User (SteamID: 123456789)")
+        self.assertEqual(account.display_name, "Test User (SteamID: 123456789) - sin carpeta 570")
     
     def test_steamid64_conversion(self):
         """Test conversión de SteamID a SteamID64."""

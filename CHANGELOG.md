@@ -5,6 +5,18 @@ Todos los cambios notables de este proyecto serán documentados en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto adhiere a [Versionado Semántico](https://semver.org/lang/es/).
 
+## [v3.1.1] - 2026-11-03 🛠️ CUENTAS NUEVAS Y STEAM CLOUD
+
+### ✨ **CUENTAS SIN CARPETA 570**
+- **Cuentas nuevas visibles**: Se listan las cuentas sin carpeta 570 (marcadas "sin carpeta 570"), incluidas las de `loginusers.vdf` sin carpeta en `userdata`
+- **Solo como destino**: El botón "Origen" queda deshabilitado en esas cuentas
+- **Sin abrir Dota primero**: Al copiar se crea la carpeta 570 (y `userdata/<id>` si falta)
+- **Sin carpetas vacías**: La detección de cuentas ya no crea carpetas 570 vacías
+
+### 🛡️ **PROTECCIÓN DE LA COPIA**
+- **Steam y Dota cerrados**: No se permite copiar si `steam.exe` o `dota2.exe` están en ejecución
+- **Steam Cloud**: Se conserva el `remotecache.vdf` propio del destino en lugar de copiar el del origen
+
 ## [v3.1.0] - 2025-07-29 🚀 PREPARACIÓN PARA GITHUB RELEASES
 
 ### 🌐 **DISTRIBUCIÓN Y SEGURIDAD**

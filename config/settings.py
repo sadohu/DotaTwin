@@ -15,7 +15,7 @@ from typing import Dict, Any
 # ═══════════════════════════════════════════════════════════════════════════
 
 APP_NAME = "DotaTwin"
-APP_VERSION = "3.1.0"
+APP_VERSION = "3.1.1"
 VERSION = APP_VERSION  # Alias para compatibilidad
 APP_AUTHOR = "Sadohu"
 APP_DESCRIPTION = "Twin your Dota experience - Copy configurations between Steam accounts"
@@ -219,6 +219,7 @@ MESSAGES = {
     "no_ignored_accounts": "No hay cuentas ignoradas",
     "error_steam_path": "No se encontró la instalación de Steam en la ruta estándar",
     "error_permissions": "Error de permisos. Ejecuta como administrador.",
+    "error_steam_running": "Cierra Steam y Dota 2 por completo antes de copiar.\n\nEn ejecución: {}\n\nSi siguen abiertos, Steam Cloud puede reemplazar la configuración copiada.",
     "error_copy_failed": "Error copiando archivos: {}"
 }
 

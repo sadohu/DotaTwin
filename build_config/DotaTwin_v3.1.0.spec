@@ -23,7 +23,6 @@ hiddenimports = [
     'PIL',
     'PIL.Image',
     'PIL.ImageTk',
-    'requests'
 ]
 
 a = Analysis(

@@ -8,8 +8,9 @@ con Dota 2 y extraer información relevante.
 import os
 import re
 import logging
+import subprocess
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from ..models.domain_models import SteamAccount
 from config.settings import STEAM_USERDATA_PATH, AVATAR_CACHE_PATH, DOTA2_APP_ID
 
@@ -38,8 +39,8 @@ class SteamAccountService:
             Ruta del directorio userdata de Steam
         """
         if self.custom_steam_path and os.path.exists(self.custom_steam_path):
-            return os.path.join(self.custom_steam_path, "userdata")
-        return STEAM_USERDATA_PATH
+            return Path(self.custom_steam_path) / "userdata"
+        return Path(STEAM_USERDATA_PATH)
     
     def set_custom_steam_path(self, steam_path: str) -> bool:
         """
@@ -52,8 +53,8 @@ class SteamAccountService:
             True si la ruta es válida
         """
         if self._validate_steam_path(steam_path):
-            self.custom_steam_path = steam_path
-            self.steam_userdata_path = os.path.join(steam_path, "userdata")
+            self.custom_steam_path = str(Path(steam_path))
+            self.steam_userdata_path = Path(steam_path) / "userdata"
             logger.info(f"Ruta de Steam configurada: {steam_path}")
             return True
         return False
@@ -123,18 +124,59 @@ class SteamAccountService:
             logger.warning("Instalación de Steam no encontrada o inválida")
             return accounts
         
+        login_users = self._read_login_users()
+
         try:
             for folder in os.listdir(self.steam_userdata_path):
-                account = self._process_steam_folder(folder)
+                account = self._process_steam_folder(folder, login_users.get(folder))
                 if account:
                     accounts.append(account)
                     logger.debug(f"Cuenta encontrada: {account.display_name}")
-        
+
         except (OSError, PermissionError) as e:
             logger.error(f"Error accediendo a userdata de Steam: {e}")
-        
-        logger.info(f"Se encontraron {len(accounts)} cuentas con Dota 2")
+
+        # Cuentas que iniciaron sesión en Steam pero aún no tienen carpeta en userdata
+        known_ids = {account.steamid for account in accounts}
+        for steamid, persona in login_users.items():
+            if steamid not in known_ids:
+                accounts.append(SteamAccount(
+                    steamid=steamid,
+                    nombre=persona,
+                    ruta=self.steam_userdata_path / steamid / self.dota2_app_id,
+                    avatar=self._find_avatar(steamid)
+                ))
+                logger.debug(f"Cuenta sin carpeta userdata encontrada: {steamid}")
+
+        logger.info(f"Se encontraron {len(accounts)} cuentas de Steam")
         return accounts
+
+    def _read_login_users(self) -> Dict[str, str]:
+        """
+        Lee las cuentas que iniciaron sesión en Steam desde loginusers.vdf.
+
+        Returns:
+            Diccionario {Steam3 ID: PersonaName}
+        """
+        login_users = {}
+        loginusers_path = self.steam_userdata_path.parent / "config" / "loginusers.vdf"
+
+        if not loginusers_path.exists():
+            return login_users
+
+        try:
+            with open(loginusers_path, encoding='utf-8', errors='ignore') as f:
+                contenido = f.read()
+
+            for match in re.finditer(r'"(7656\d{13})"\s*\{([^}]*)\}', contenido):
+                steamid = str(int(match.group(1)) - 76561197960265728)
+                persona = re.search(r'"PersonaName"\s+"([^"]+)"', match.group(2))
+                login_users[steamid] = persona.group(1) if persona else "Desconocido"
+
+        except (IOError, ValueError) as e:
+            logger.debug(f"Error leyendo loginusers.vdf: {e}")
+
+        return login_users
     
     def _validate_steam_installation(self) -> bool:
         """
@@ -146,26 +188,34 @@ class SteamAccountService:
         return (self.steam_userdata_path.exists() and 
                 self.avatar_cache_path.exists())
     
-    def _process_steam_folder(self, folder_name: str) -> Optional[SteamAccount]:
+    def _process_steam_folder(self, folder_name: str,
+                              persona: Optional[str] = None) -> Optional[SteamAccount]:
         """
         Procesa una carpeta de usuario de Steam.
-        
+
+        La carpeta 570 no se crea aquí: se crea al copiar hacia la cuenta.
+
         Args:
             folder_name: Nombre de la carpeta de usuario
-            
+            persona: Nombre de loginusers.vdf, usado si localconfig.vdf no lo tiene
+
         Returns:
-            SteamAccount si la carpeta contiene Dota 2, None en caso contrario
+            SteamAccount de la carpeta, None si no es una carpeta de usuario
         """
         try:
-            user_path = self.steam_userdata_path / folder_name
-            dota_path = user_path / self.dota2_app_id
-            
-            # Verificar que existe la carpeta de Dota 2
-            if not dota_path.exists():
+            if not folder_name.isdigit():
                 return None
-            
+
+            user_path = self.steam_userdata_path / folder_name
+            if not user_path.is_dir():
+                return None
+
+            dota_path = user_path / self.dota2_app_id
+
             # Extraer información del usuario
             nombre = self._extract_username(user_path)
+            if nombre == "Desconocido" and persona:
+                nombre = persona
             avatar_path = self._find_avatar(folder_name)
             
             return SteamAccount(
@@ -365,10 +415,38 @@ class ValidationService:
         if not origen.config_exists:
             return False, f"No existe configuración en la cuenta origen: {origen.nombre}"
         
-        if not destino.ruta.parent.exists():
+        if not destino.ruta.parent.parent.exists():
             return False, f"No se puede acceder a la cuenta destino: {destino.nombre}"
-        
+
         return True, ""
+
+    @staticmethod
+    def find_running_steam_processes() -> List[str]:
+        """
+        Busca procesos de Steam o Dota 2 en ejecución.
+
+        Mientras están abiertos pueden sobrescribir la configuración copiada
+        al sincronizar con Steam Cloud.
+
+        Returns:
+            Lista de procesos en ejecución (ej: ["steam.exe"])
+        """
+        running = []
+
+        for process_name in ("steam.exe", "dota2.exe"):
+            try:
+                result = subprocess.run(
+                    ["tasklist", "/FI", f"IMAGENAME eq {process_name}", "/FO", "CSV", "/NH"],
+                    capture_output=True, text=True, errors="ignore",
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
+                )
+                if f'"{process_name}"' in result.stdout.lower():
+                    running.append(process_name)
+
+            except OSError as e:
+                logger.warning(f"No se pudo verificar el proceso {process_name}: {e}")
+
+        return running
     
     @staticmethod
     def validate_steam_paths() -> Tuple[bool, str]:

@@ -36,7 +36,8 @@ class SteamAccount:
     @property
     def display_name(self) -> str:
         """Nombre para mostrar en la interfaz."""
-        return f"{self.nombre} (SteamID: {self.steamid})"
+        nombre = f"{self.nombre} (SteamID: {self.steamid})"
+        return nombre if self.config_exists else f"{nombre} - sin carpeta 570"
     
     @property
     def has_avatar(self) -> bool:
@@ -45,8 +46,11 @@ class SteamAccount:
     
     @property
     def config_exists(self) -> bool:
-        """Indica si existe la carpeta de configuración de Dota 2."""
-        return self.ruta.exists()
+        """Indica si existe la carpeta de configuración de Dota 2 y tiene contenido."""
+        try:
+            return self.ruta.is_dir() and any(self.ruta.iterdir())
+        except OSError:
+            return False
     
     def __eq__(self, other) -> bool:
         """Compara cuentas por SteamID."""
@@ -376,7 +380,7 @@ class CopyOperation:
     def is_valid(self) -> bool:
         """Valida que la operación de copia sea posible."""
         return (self.origen.config_exists and 
-                self.destino.ruta.parent.exists() and
+                self.destino.ruta.parent.parent.exists() and
                 self.origen != self.destino)
     
     @property

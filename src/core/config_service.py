@@ -15,6 +15,8 @@ from config.settings import CACHE_FILE, CONFIG_PATTERNS, EXCLUDE_FOLDERS
 
 logger = logging.getLogger(__name__)
 
+REMOTECACHE_FILE = "remotecache.vdf"
+
 
 class ConfigurationService:
     """
@@ -277,16 +279,28 @@ class FileCopyService:
         """
         try:
             # Asegurar que el directorio padre del destino existe
+            # (crea userdata/<id> si la cuenta nunca abrió Dota 2)
             destino.parent.mkdir(parents=True, exist_ok=True)
-            
+
+            # remotecache.vdf es el estado de Steam Cloud de cada cuenta. Copiar el
+            # del origen hace que Steam crea que los archivos ya están sincronizados
+            # y los reemplace con la nube del destino, así que se conserva el propio.
+            remotecache_destino = destino / REMOTECACHE_FILE
+            remotecache_original = (remotecache_destino.read_bytes()
+                                    if remotecache_destino.is_file() else None)
+
             # Eliminar destino si existe para hacer una copia limpia
             if destino.exists():
-                import shutil
                 shutil.rmtree(destino)
-            
-            # Copiar toda la carpeta recursivamente (como en v1)
-            import shutil
-            shutil.copytree(origen, destino)
+
+            # Copiar toda la carpeta recursivamente, menos el remotecache.vdf raíz
+            def ignorar_remotecache(carpeta, nombres):
+                return [REMOTECACHE_FILE] if Path(carpeta) == origen else []
+
+            shutil.copytree(origen, destino, ignore=ignorar_remotecache)
+
+            if remotecache_original is not None:
+                remotecache_destino.write_bytes(remotecache_original)
             
             logger.info(f"Carpeta copiada completamente: {origen} -> {destino}")
             return True

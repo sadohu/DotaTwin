@@ -509,7 +509,16 @@ class DotaTwinApp(LoggingMixin):
         if not self.current_selection.is_valid:
             MessageHelper.show_error("Error", "Selección inválida para copia")
             return
-        
+
+        # Steam/Dota abiertos pueden sobrescribir la copia al sincronizar con la nube
+        running = self.validation_service.find_running_steam_processes()
+        if running:
+            MessageHelper.show_error(
+                "Cierra Steam y Dota 2",
+                MESSAGES["error_steam_running"].format(", ".join(running))
+            )
+            return
+
         # Confirmar operación
         confirm = MessageHelper.ask_confirmation(
             "Confirmar",

@@ -66,7 +66,11 @@ class AccountRowWidget(LoggingMixin):
             self._on_origen_clicked
         )
         self.btn_origen.grid(row=0, column=2, padx=5)
-        
+
+        # Sin carpeta 570 no hay nada que copiar: la cuenta solo sirve como destino
+        if not self.account.config_exists:
+            self.btn_origen.config(state='disabled')
+
         self.btn_destino = IconHelper.create_icon_button(
             self.frame, "destino", "Destino", 
             self._on_destino_clicked
