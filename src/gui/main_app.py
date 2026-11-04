@@ -665,33 +665,41 @@ class DotaTwinApp(LoggingMixin):
     def _show_about(self) -> None:
         """Muestra información sobre la aplicación."""
         about_text = f"""{APP_NAME} v{APP_VERSION}
-Desarrollado por {APP_AUTHOR}
+Hecho por {APP_AUTHOR}
 
-{APP_DESCRIPTION}
+Copia tu configuración de Dota 2 de una cuenta de Steam a otra en un par de clics: teclas, lista de héroes, ajustes del juego y todo lo demás.
 
-🎯 Twin your Dota experience - Crea gemelos perfectos de tus configuraciones
+✨ Qué puedes hacer
+- Encuentra tus cuentas de Steam automáticamente
+- Copia toda tu configuración de Dota 2
+- Copia a cuentas que nunca abrieron Dota 2
+- Guarda un respaldo antes de reemplazar nada
+- Recuerda las cuentas que elegiste y tus preferencias
+- Modo oscuro y modo claro (menú Ver)
+- Oculta las cuentas que no usas
 
-Arquitectura Modular v3.0
-- Separación de responsabilidades
-- Principios SOLID aplicados
-- Testing automatizado
-- Logging avanzado
-- Layout responsivo con Grid
-- Sistema de ignorar cuentas
-- Copia completa de configuraciones
+💬 Contacto y soporte
+GitHub: github.com/sadohu
+WhatsApp: @sadohu
+Discord: búscame como sadohu
 
-📞 Contacto y Soporte:
-Discord: Sadohu
-🔗 Unirse al Discord: https://discord.gg/MYNyKQvk
-GitHub: Sadohu
-
-🔗 Repositorio del Proyecto:
-https://github.com/sadohu/DotaTwin
-
-Steam configurado en: {self.app_config.custom_steam_path or 'Detección automática'}"""
+🙏 Agradecimientos
+EpziTecho, por sugerir el nombre "DotaTwin"."""
         
-        # Usar el nuevo diálogo personalizado
-        dialog = AboutDialog(self.root, "Acerca de", about_text)
+        links = {
+            "github.com/sadohu": "https://github.com/sadohu",
+            "@sadohu": "https://wa.me/sadohu",
+            "EpziTecho": "https://github.com/EpziTecho",
+        }
+        headings = [f"{APP_NAME} v{APP_VERSION}", "✨ Qué puedes hacer",
+                    "💬 Contacto y soporte", "🙏 Agradecimientos"]
+        
+        buttons = {
+            "WhatsApp": "https://wa.me/sadohu",
+            "GitHub": "https://github.com/sadohu",
+        }
+        
+        dialog = AboutDialog(self.root, "Acerca de", about_text, links, headings, buttons)
         dialog.show()
     
     def _on_closing(self) -> None:

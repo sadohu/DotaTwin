@@ -496,7 +496,10 @@ class AboutDialog:
     Diálogo personalizado 'Acerca de' con texto seleccionable y enlaces clicables.
     """
     
-    def __init__(self, parent: tk.Tk, title: str, content: str):
+    def __init__(self, parent: tk.Tk, title: str, content: str,
+                 links: Optional[Dict[str, str]] = None,
+                 headings: Optional[List[str]] = None,
+                 buttons: Optional[Dict[str, str]] = None):
         """
         Inicializa el diálogo Acerca de.
         
@@ -504,10 +507,16 @@ class AboutDialog:
             parent: Ventana padre
             title: Título del diálogo
             content: Contenido del diálogo
+            links: Textos del contenido que abren un enlace al hacer clic {texto: url}
+            headings: Líneas del contenido que se muestran en negrita
+            buttons: Botones que abren un enlace {texto del botón: url}
         """
         self.parent = parent
         self.title = title
         self.content = content
+        self.links = links or {}
+        self.headings = set(headings or [])
+        self.buttons = buttons or {}
         self.dialog = None
         
     def show(self) -> None:
@@ -519,7 +528,7 @@ class AboutDialog:
         self.dialog.grab_set()
         
         # Configurar ventana
-        self.dialog.geometry("500x400")
+        self.dialog.geometry("520x480")
         self.dialog.resizable(False, False)
         
         # Configurar icono (mismo que la aplicación principal)
@@ -554,8 +563,8 @@ class AboutDialog:
         parent_height = self.parent.winfo_height()
         
         # Calcular posición centrada
-        dialog_width = 500
-        dialog_height = 400
+        dialog_width = 520
+        dialog_height = 480
         x = parent_x + (parent_width - dialog_width) // 2
         y = parent_y + (parent_height - dialog_height) // 2
         
@@ -609,122 +618,59 @@ class AboutDialog:
         )
         close_btn.pack(side='right')
         
-        # Botón Copiar link del Repositorio
-        copy_repo_btn = ttk.Button(
-            button_frame, 
-            text="📋 Copiar link del Repositorio", 
-            command=self._copy_repository_link
-        )
-        copy_repo_btn.pack(side='right', padx=(0, 10))
-        
-        # Botón Copiar link de Discord
-        copy_discord_btn = ttk.Button(
-            button_frame, 
-            text="💬 Copiar link de Discord", 
-            command=self._copy_discord_link
-        )
-        copy_discord_btn.pack(side='right', padx=(0, 10))
+        # Botones para abrir los contactos en el navegador
+        for text, url in reversed(list(self.buttons.items())):
+            ttk.Button(
+                button_frame,
+                text=f"Abrir {text}",
+                command=lambda u=url: self._open_url(u)
+            ).pack(side='right', padx=(0, 10))
     
     def _insert_content(self, text_widget: tk.Text) -> None:
         """
-        Inserta el contenido en el widget de texto con formato y enlaces.
+        Inserta el contenido con títulos en negrita y enlaces clicables.
         
         Args:
             text_widget: Widget de texto donde insertar
         """
-        # Habilitar edición temporalmente
         text_widget.configure(state='normal')
+        text_widget.tag_configure("heading", font=("Arial", 11, "bold"))
         
-        lines = self.content.split('\n')
-        
-        for line in lines:
-            if line.strip() == "":
-                text_widget.insert('end', '\n')
-                continue
-                
-            # Detectar y procesar enlaces
-            if 'https://' in line:
-                self._insert_line_with_links(text_widget, line)
-            # Detectar líneas de contacto
-            elif 'Discord:' in line or 'GitHub:' in line:
-                self._insert_contact_line(text_widget, line)
+        for line in self.content.split('\n'):
+            if line.strip() in self.headings:
+                text_widget.insert('end', line + '\n', "heading")
             else:
-                text_widget.insert('end', line + '\n')
+                self._insert_line_with_links(text_widget, line)
         
-        # Deshabilitar edición
         text_widget.configure(state='disabled')
     
     def _insert_line_with_links(self, text_widget: tk.Text, line: str) -> None:
         """
-        Inserta una línea que contiene enlaces clicables.
+        Inserta una línea marcando como enlace los textos registrados en ``links``.
         
         Args:
             text_widget: Widget de texto
-            line: Línea con enlaces
+            line: Línea a insertar
         """
-        import re
-        
-        # Buscar URLs en la línea
-        url_pattern = r'https://[^\s]+'
-        urls = re.findall(url_pattern, line)
-        
-        if urls:
-            # Dividir la línea en partes
-            parts = re.split(url_pattern, line)
+        while line:
+            # Primer texto enlazado que aparece en lo que queda de la línea
+            matches = [(line.find(text), text) for text in self.links if text in line]
+            if not matches:
+                text_widget.insert('end', line)
+                break
+            position, text = min(matches)
+            text_widget.insert('end', line[:position])
             
-            for i, part in enumerate(parts):
-                text_widget.insert('end', part)
-                
-                # Insertar URL después de cada parte (excepto la última)
-                if i < len(urls):
-                    url = urls[i]
-                    start_pos = text_widget.index('end-1c')
-                    text_widget.insert('end', url)
-                    end_pos = text_widget.index('end-1c')
-                    
-                    # Configurar tag para el enlace
-                    tag_name = f"link_{i}"
-                    text_widget.tag_add(tag_name, start_pos, end_pos)
-                    text_widget.tag_configure(tag_name, 
-                                            foreground=palette()["link"], 
-                                            underline=True)
-                    
-                    # Bind click event
-                    text_widget.tag_bind(tag_name, "<Button-1>", 
-                                       lambda e, url=url: self._open_url(url))
-                    text_widget.tag_bind(tag_name, "<Enter>", 
-                                       lambda e: text_widget.configure(cursor="hand2"))
-                    text_widget.tag_bind(tag_name, "<Leave>", 
-                                       lambda e: text_widget.configure(cursor=""))
+            tag_name = f"link_{len(text_widget.tag_names())}"
+            text_widget.insert('end', text, tag_name)
+            text_widget.tag_configure(tag_name, foreground=palette()["link"], underline=True)
+            url = self.links[text]
+            text_widget.tag_bind(tag_name, "<Button-1>", lambda e, u=url: self._open_url(u))
+            text_widget.tag_bind(tag_name, "<Enter>", lambda e: text_widget.configure(cursor="hand2"))
+            text_widget.tag_bind(tag_name, "<Leave>", lambda e: text_widget.configure(cursor=""))
+            
+            line = line[position + len(text):]
         
-        text_widget.insert('end', '\n')
-    
-    def _insert_contact_line(self, text_widget: tk.Text, line: str) -> None:
-        """
-        Inserta una línea de contacto con el nombre seleccionable.
-        
-        Args:
-            text_widget: Widget de texto
-            line: Línea de contacto
-        """
-        if ':' in line:
-            prefix, name = line.split(':', 1)
-            text_widget.insert('end', prefix + ': ')
-            
-            # Insertar nombre con tag especial
-            start_pos = text_widget.index('end-1c')
-            text_widget.insert('end', name.strip())
-            end_pos = text_widget.index('end-1c')
-            
-            # Configurar tag para nombre seleccionable
-            tag_name = f"contact_{prefix.strip().lower()}"
-            text_widget.tag_add(tag_name, start_pos, end_pos)
-            text_widget.tag_configure(tag_name, 
-                                    foreground=palette()["accent"], 
-                                    font=("Arial", 10, "bold"))
-        else:
-            text_widget.insert('end', line)
-            
         text_widget.insert('end', '\n')
     
     def _open_url(self, url: str) -> None:
@@ -741,44 +687,6 @@ class AboutDialog:
             MessageHelper.show_error(
                 "Error", 
                 f"No se pudo abrir el enlace:\n{url}\n\nError: {str(e)}"
-            )
-    
-    def _copy_discord_link(self) -> None:
-        """Copia el enlace de Discord al portapapeles."""
-        discord_link = "https://discord.gg/MYNyKQvk"
-        
-        try:
-            self.dialog.clipboard_clear()
-            self.dialog.clipboard_append(discord_link)
-            
-            # Mostrar confirmación temporal
-            MessageHelper.show_info(
-                "Copiado", 
-                "Enlace de Discord copiado al portapapeles"
-            )
-        except Exception:
-            MessageHelper.show_error(
-                "Error", 
-                "No se pudo copiar al portapapeles"
-            )
-    
-    def _copy_repository_link(self) -> None:
-        """Copia el enlace del repositorio al portapapeles."""
-        repo_link = "https://github.com/sadohu/Dota2CopyMainConfig"
-        
-        try:
-            self.dialog.clipboard_clear()
-            self.dialog.clipboard_append(repo_link)
-            
-            # Mostrar confirmación temporal
-            MessageHelper.show_info(
-                "Copiado", 
-                "Enlace del repositorio copiado al portapapeles"
-            )
-        except Exception:
-            MessageHelper.show_error(
-                "Error", 
-                "No se pudo copiar al portapapeles"
             )
     
     def _on_close(self) -> None:
