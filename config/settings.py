@@ -212,7 +212,7 @@ MESSAGES = {
     "no_ignored_accounts": "No hay cuentas ignoradas",
     "error_steam_path": "No se encontró la instalación de Steam en la ruta estándar",
     "error_permissions": "Error de permisos. Ejecuta como administrador.",
-    "error_steam_running": "Cierra Steam y Dota 2 por completo antes de copiar.\n\nEn ejecución: {}\n\nSi siguen abiertos, Steam Cloud puede reemplazar la configuración copiada.",
+    "error_dota_running": "Cierra Dota 2 antes de copiar.\n\nSi sigue abierto, el juego puede reemplazar la configuración copiada al cerrarse. Steam puede quedarse abierto.",
     "error_copy_failed": "Error copiando archivos: {}"
 }
 

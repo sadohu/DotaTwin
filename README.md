@@ -15,7 +15,7 @@
 - 🔍 **Detecta tus cuentas solo**: encuentra automáticamente las cuentas de Steam de tu PC, con su nombre y avatar.
 - 📋 **Copia todo**: teclas, lista de héroes, opciones del juego y el resto de tu configuración de Dota 2.
 - 🆕 **Cuentas nuevas**: puedes copiar tu configuración a una cuenta que nunca abrió Dota 2, sin tener que entrar al juego primero.
-- 🛡️ **Copia segura**: guarda una copia de respaldo antes de reemplazar nada, y no te deja copiar con Steam o Dota 2 abiertos para que Steam no deshaga los cambios.
+- 🛡️ **Copia segura**: guarda una copia de respaldo antes de reemplazar nada, y no te deja copiar con Dota 2 abierto para que el juego no deshaga los cambios.
 - 💾 **Recuerda tu elección**: guarda las cuentas que elegiste, tus preferencias y el tema para la próxima vez.
 - 🌙 **Modo oscuro**: viene activado por defecto; si prefieres, cambia a modo claro desde el menú **Ver**.
 - 🚫 **Oculta cuentas**: esconde las cuentas que no usas y recupéralas cuando quieras desde la pestaña **Cuentas Ignoradas**.
@@ -43,12 +43,12 @@ Al abrirlo por primera vez, Windows puede mostrar **"Windows protegió su PC"**.
 
 ## 🚀 Cómo se usa
 
-1. **Cierra Steam y Dota 2** por completo.
+1. **Cierra Dota 2** (Steam puede quedarse abierto).
 2. Abre DotaTwin.
 3. En la cuenta que ya tiene tu configuración, pulsa **📤 Origen**.
 4. En la cuenta donde la quieres copiar, pulsa **📥 Destino**.
 5. Pulsa **📋 Copiar configuración** y confirma.
-6. ¡Listo! Abre Steam, entra con la otra cuenta y tendrás todo igual.
+6. ¡Listo! Entra a Steam con la otra cuenta, abre Dota 2 y tendrás todo igual.
 
 > 💡 Las cuentas marcadas **"sin carpeta 570"** nunca han abierto Dota 2: solo pueden ser destino.
 

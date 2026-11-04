@@ -14,6 +14,7 @@ y este proyecto adhiere a [Versionado Semántico](https://semver.org/lang/es/).
 - **Filas de cuenta**: El color de origen/destino ahora cubre toda la fila, incluidos avatar y nombre
 
 ### 🐛 **CORRECCIONES**
+- **Steam puede quedarse abierto**: Para copiar solo hace falta cerrar Dota 2 (`dota2.exe`); ya no se bloquea por `steam.exe`
 - **Ruta de Steam personalizada**: Ahora se guarda en la configuración (antes se perdía al cerrar)
 - **Configuración única**: La aplicación y el servicio de configuración comparten el mismo objeto, evitando que un guardado pisara a otro
 

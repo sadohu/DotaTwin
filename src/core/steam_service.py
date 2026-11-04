@@ -379,19 +379,19 @@ class ValidationService:
         return True, ""
 
     @staticmethod
-    def find_running_steam_processes() -> List[str]:
+    def find_running_dota_processes() -> List[str]:
         """
-        Busca procesos de Steam o Dota 2 en ejecución.
+        Busca Dota 2 en ejecución.
 
-        Mientras están abiertos pueden sobrescribir la configuración copiada
-        al sincronizar con Steam Cloud.
+        Mientras el juego está abierto guarda su configuración al cerrarse y
+        pisaría la copiada. Steam puede seguir abierto.
 
         Returns:
-            Lista de procesos en ejecución (ej: ["steam.exe"])
+            Lista de procesos en ejecución (ej: ["dota2.exe"])
         """
         running = []
 
-        for process_name in ("steam.exe", "dota2.exe"):
+        for process_name in ("dota2.exe",):
             try:
                 result = subprocess.run(
                     ["tasklist", "/FI", f"IMAGENAME eq {process_name}", "/FO", "CSV", "/NH"],
