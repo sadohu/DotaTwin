@@ -99,23 +99,6 @@ class TestSteamConfiguration(unittest.TestCase):
             self.assertFalse(account.config_exists)
             self.assertFalse(user_path.joinpath("570").exists())
 
-    def test_login_users_are_read(self):
-        """Convierte los SteamID64 de loginusers.vdf a Steam3 ID con su nombre."""
-        steam_service = SteamAccountService()
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            userdata_path = Path(temp_dir) / "userdata"
-            userdata_path.mkdir()
-            config_path = Path(temp_dir) / "config"
-            config_path.mkdir()
-            config_path.joinpath("loginusers.vdf").write_text(
-                '"users"\n{\n\t"76561197960265729"\n\t{\n\t\t"PersonaName"\t\t"Nuevo"\n\t}\n}\n',
-                encoding="utf-8"
-            )
-            steam_service.steam_userdata_path = userdata_path
-
-            self.assertEqual(steam_service._read_login_users(), {"1": "Nuevo"})
-
     def test_copy_creates_dota_folder_and_keeps_remotecache(self):
         """Crea la 570 del destino y conserva su remotecache.vdf propio."""
         from src.core.config_service import FileCopyService

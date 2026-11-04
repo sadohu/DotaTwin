@@ -8,7 +8,8 @@ y este proyecto adhiere a [Versionado Semántico](https://semver.org/lang/es/).
 ## [v3.1.1] - 2026-11-03 🛠️ CUENTAS NUEVAS Y STEAM CLOUD
 
 ### ✨ **CUENTAS SIN CARPETA 570**
-- **Cuentas nuevas visibles**: Se listan las cuentas sin carpeta 570 (marcadas "sin carpeta 570"), incluidas las de `loginusers.vdf` sin carpeta en `userdata`
+- **Cuentas nuevas visibles**: Se listan las cuentas de `userdata` sin carpeta 570 (marcadas "sin carpeta 570")
+- **Sin leer `loginusers.vdf`**: Los antivirus (ej. Kaspersky) suspenden ejecutables sin firma que abren ese archivo, lo que congelaba la ventana
 - **Solo como destino**: El botón "Origen" queda deshabilitado en esas cuentas
 - **Sin abrir Dota primero**: Al copiar se crea la carpeta 570 (y `userdata/<id>` si falta)
 - **Sin carpetas vacías**: La detección de cuentas ya no crea carpetas 570 vacías

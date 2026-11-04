@@ -10,7 +10,7 @@ import re
 import logging
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 from ..models.domain_models import SteamAccount
 from config.settings import STEAM_USERDATA_PATH, AVATAR_CACHE_PATH, DOTA2_APP_ID
 
@@ -124,11 +124,12 @@ class SteamAccountService:
             logger.warning("Instalación de Steam no encontrada o inválida")
             return accounts
         
-        login_users = self._read_login_users()
-
+        # No se lee config/loginusers.vdf: los antivirus (ej. Kaspersky) suspenden
+        # ejecutables sin firma que lo abren, porque es lo que hacen los robacuentas.
+        # Steam crea userdata/<id> al iniciar sesión, así que basta con esa carpeta.
         try:
             for folder in os.listdir(self.steam_userdata_path):
-                account = self._process_steam_folder(folder, login_users.get(folder))
+                account = self._process_steam_folder(folder)
                 if account:
                     accounts.append(account)
                     logger.debug(f"Cuenta encontrada: {account.display_name}")
@@ -136,47 +137,8 @@ class SteamAccountService:
         except (OSError, PermissionError) as e:
             logger.error(f"Error accediendo a userdata de Steam: {e}")
 
-        # Cuentas que iniciaron sesión en Steam pero aún no tienen carpeta en userdata
-        known_ids = {account.steamid for account in accounts}
-        for steamid, persona in login_users.items():
-            if steamid not in known_ids:
-                accounts.append(SteamAccount(
-                    steamid=steamid,
-                    nombre=persona,
-                    ruta=self.steam_userdata_path / steamid / self.dota2_app_id,
-                    avatar=self._find_avatar(steamid)
-                ))
-                logger.debug(f"Cuenta sin carpeta userdata encontrada: {steamid}")
-
         logger.info(f"Se encontraron {len(accounts)} cuentas de Steam")
         return accounts
-
-    def _read_login_users(self) -> Dict[str, str]:
-        """
-        Lee las cuentas que iniciaron sesión en Steam desde loginusers.vdf.
-
-        Returns:
-            Diccionario {Steam3 ID: PersonaName}
-        """
-        login_users = {}
-        loginusers_path = self.steam_userdata_path.parent / "config" / "loginusers.vdf"
-
-        if not loginusers_path.exists():
-            return login_users
-
-        try:
-            with open(loginusers_path, encoding='utf-8', errors='ignore') as f:
-                contenido = f.read()
-
-            for match in re.finditer(r'"(7656\d{13})"\s*\{([^}]*)\}', contenido):
-                steamid = str(int(match.group(1)) - 76561197960265728)
-                persona = re.search(r'"PersonaName"\s+"([^"]+)"', match.group(2))
-                login_users[steamid] = persona.group(1) if persona else "Desconocido"
-
-        except (IOError, ValueError) as e:
-            logger.debug(f"Error leyendo loginusers.vdf: {e}")
-
-        return login_users
     
     def _validate_steam_installation(self) -> bool:
         """
@@ -188,8 +150,7 @@ class SteamAccountService:
         return (self.steam_userdata_path.exists() and 
                 self.avatar_cache_path.exists())
     
-    def _process_steam_folder(self, folder_name: str,
-                              persona: Optional[str] = None) -> Optional[SteamAccount]:
+    def _process_steam_folder(self, folder_name: str) -> Optional[SteamAccount]:
         """
         Procesa una carpeta de usuario de Steam.
 
@@ -197,7 +158,6 @@ class SteamAccountService:
 
         Args:
             folder_name: Nombre de la carpeta de usuario
-            persona: Nombre de loginusers.vdf, usado si localconfig.vdf no lo tiene
 
         Returns:
             SteamAccount de la carpeta, None si no es una carpeta de usuario
@@ -214,8 +174,6 @@ class SteamAccountService:
 
             # Extraer información del usuario
             nombre = self._extract_username(user_path)
-            if nombre == "Desconocido" and persona:
-                nombre = persona
             avatar_path = self._find_avatar(folder_name)
             
             return SteamAccount(
