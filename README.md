@@ -8,6 +8,10 @@
 
 ¿Tienes varias cuentas de Steam? Con DotaTwin no tienes que volver a configurar cada una a mano: tus teclas, tu lista de héroes, tus ajustes de juego y todo lo demás pasan de una cuenta a otra al instante.
 
+<p align="center">
+  <img width="720" alt="DotaTwin: elige la cuenta de origen y la de destino, y copia la configuración" src="https://github.com/user-attachments/assets/222f61dc-576c-40fb-94a6-6de2e8ea5876" />
+</p>
+
 ---
 
 ## ✨ Características
