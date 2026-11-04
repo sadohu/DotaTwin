@@ -59,7 +59,7 @@ Al abrirlo por primera vez, Windows puede mostrar **"Windows protegió su PC"**.
 ¿Dudas, problemas o sugerencias? Escríbeme:
 
 - 🐙 **GitHub**: <a href="https://github.com/sadohu" target="_blank" rel="noopener noreferrer">github.com/sadohu</a>
-- 📱 **WhatsApp**: <a href="https://wa.me/sadohu" target="_blank" rel="noopener noreferrer">escríbeme aquí</a>
+- 📱 **WhatsApp**: <a href="https://wa.me/sadohu" target="_blank" rel="noopener noreferrer">@sadohu</a>
 - 💬 **Discord**: búscame como **sadohu**
 
 ---
