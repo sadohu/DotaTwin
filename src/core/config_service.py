@@ -56,6 +56,7 @@ class ConfigurationService:
         """
         try:
             config = AppConfig.load_from_file(self.config_file)
+            self._config = config
             logger.info(f"Configuración cargada desde {self.config_file}")
             return config
             

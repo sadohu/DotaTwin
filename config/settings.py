@@ -15,7 +15,7 @@ from typing import Dict, Any
 # ═══════════════════════════════════════════════════════════════════════════
 
 APP_NAME = "DotaTwin"
-APP_VERSION = "3.1.1"
+APP_VERSION = "3.2.0"
 VERSION = APP_VERSION  # Alias para compatibilidad
 APP_AUTHOR = "Sadohu"
 APP_DESCRIPTION = "Twin your Dota experience - Copy configurations between Steam accounts"
@@ -96,14 +96,7 @@ DEFAULT_AVATAR_COLOR = (64, 64, 64)
 # ESTILOS Y COLORES
 # ═══════════════════════════════════════════════════════════════════════════
 
-# Colores para estados de cuenta
-COLORS = {
-    "origen": "#d0f0ff",      # Azul claro
-    "destino": "#e0ffe0",     # Verde claro
-    "normal": "#f0f0f0",      # Gris claro
-    "ignorada": "#ffcccc",    # Rojo claro
-    "selected_page": "lightblue"
-}
+# Los colores de la interfaz (temas oscuro y claro) están en src/utils/theme.py
 
 # Iconos Unicode para la interfaz
 ICONS = {

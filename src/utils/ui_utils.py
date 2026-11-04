@@ -11,7 +11,8 @@ from typing import Dict, Any, Optional, Callable, List, Tuple
 from PIL import Image, ImageTk
 from pathlib import Path
 from ..models.domain_models import SteamAccount, PaginationInfo
-from config.settings import ICONS, COLORS, AVATAR_SIZE, DEFAULT_AVATAR_COLOR
+from config.settings import ICONS, AVATAR_SIZE, DEFAULT_AVATAR_COLOR
+from .theme import palette, apply_title_bar
 
 
 class StyleManager:
@@ -27,26 +28,40 @@ class StyleManager:
         self._setup_styles()
     
     def _setup_styles(self) -> None:
-        """Configura todos los estilos de la aplicación."""
+        """Configura todos los estilos de la aplicación con el tema activo."""
+        colors = palette()
         # Estilos para frames de cuenta
-        self.style.configure("Origen.TFrame", background=COLORS["origen"])
-        self.style.configure("Destino.TFrame", background=COLORS["destino"])
-        self.style.configure("Normal.TFrame", background=COLORS["normal"])
-        self.style.configure("Ignorada.TFrame", background=COLORS["ignorada"])
+        self.style.configure("Origen.TFrame", background=colors["origen"])
+        self.style.configure("Destino.TFrame", background=colors["destino"])
+        self.style.configure("Normal.TFrame", background=colors["surface"])
+        self.style.configure("Ignorada.TFrame", background=colors["ignorada"])
         
         # Estilo para página seleccionada
         self.style.configure("Selected.TLabel", 
-                           background=COLORS["selected_page"],
+                           background=colors["selected_page"],
                            relief="raised")
     
-    def apply_account_style(self, frame: ttk.Frame, style_type: str) -> None:
+    @staticmethod
+    def row_color(style_type: str) -> str:
+        """Color de fondo de una fila de cuenta según su estado."""
+        colors = palette()
+        return colors.get(style_type if style_type != "normal" else "surface",
+                          colors["surface"])
+    
+    def apply_account_style(self, frame: ttk.Frame, style_type: str,
+                            *labels: tk.Widget) -> None:
         """
         Aplica un estilo específico a un frame de cuenta.
         
         Args:
             frame: Frame a estilizar
             style_type: Tipo de estilo ("origen", "destino", "normal", "ignorada")
+            labels: Widgets tk del frame que deben tomar el mismo fondo
         """
+        background = self.row_color(style_type)
+        for label in labels:
+            label.configure(background=background)
+
         style_map = {
             "origen": "Origen.TFrame",
             "destino": "Destino.TFrame", 
@@ -232,7 +247,7 @@ class PaginationWidget:
             if page == self.pagination.current_page:
                 # Página actual como label
                 lbl = tk.Label(self.frame, text=str(page), 
-                             bg=COLORS["selected_page"], width=3, relief='raised')
+                             bg=palette()["selected_page"], width=3, relief='raised')
                 lbl.pack(side='left', padx=1)
                 self._widgets.append(lbl)
             else:
@@ -519,6 +534,7 @@ class AboutDialog:
         
         # Centrar en la ventana padre
         self._center_window()
+        apply_title_bar(self.dialog)
         
         # Crear contenido
         self._create_content()
@@ -670,7 +686,7 @@ class AboutDialog:
                     tag_name = f"link_{i}"
                     text_widget.tag_add(tag_name, start_pos, end_pos)
                     text_widget.tag_configure(tag_name, 
-                                            foreground="blue", 
+                                            foreground=palette()["link"], 
                                             underline=True)
                     
                     # Bind click event
@@ -704,7 +720,7 @@ class AboutDialog:
             tag_name = f"contact_{prefix.strip().lower()}"
             text_widget.tag_add(tag_name, start_pos, end_pos)
             text_widget.tag_configure(tag_name, 
-                                    foreground="darkblue", 
+                                    foreground=palette()["accent"], 
                                     font=("Arial", 10, "bold"))
         else:
             text_widget.insert('end', line)

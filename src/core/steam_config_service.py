@@ -13,6 +13,7 @@ from pathlib import Path
 from ..models.domain_models import AppConfig
 from .steam_service import SteamAccountService
 from ..utils.logging_utils import LoggingMixin
+from ..utils.theme import palette, apply_title_bar
 
 
 class SteamConfigurationService(LoggingMixin):
@@ -188,6 +189,7 @@ class SteamConfigDialog:
         ))
         
         self._create_widgets()
+        apply_title_bar(self.dialog)
         
         # Esperar hasta que se cierre el diálogo
         self.dialog.wait_window()
@@ -227,7 +229,8 @@ class SteamConfigDialog:
             current_frame,
             textvariable=self.path_var,
             relief="sunken",
-            bg="white",
+            bg=palette()["input"],
+            fg=palette()["fg"],
             anchor="w",
             padx=5,
             pady=5

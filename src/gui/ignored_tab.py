@@ -11,6 +11,7 @@ from typing import List, Callable, Optional
 from ..models.domain_models import SteamAccount, PaginationInfo
 from ..utils.ui_utils import AvatarManager, IconHelper, PaginationWidget, StyleManager
 from ..utils.logging_utils import LoggingMixin
+from ..utils.theme import palette
 
 
 class IgnoredAccountRowWidget(LoggingMixin):
@@ -212,7 +213,7 @@ class IgnoredAccountsListWidget(LoggingMixin):
             self.accounts_frame,
             text="No hay cuentas ignoradas",
             font=("Arial", 10),
-            fg="gray"
+            fg=palette()["muted"]
         )
         empty_label.pack(pady=20)
         self.account_widgets.append(empty_label)  # Para poder limpiarlo después
@@ -388,7 +389,7 @@ class SimpleIgnoredTabWidget(LoggingMixin):
             self.accounts_frame,
             text="No hay cuentas ignoradas",
             font=("Arial", 10),
-            fg="gray"
+            fg=palette()["muted"]
         )
         empty_label.pack(pady=20)
         self.account_widgets.append(empty_label)

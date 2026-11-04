@@ -19,6 +19,7 @@ from ..core.steam_config_service import SteamConfigurationService
 from ..models.domain_models import SteamAccount, AppSelection, CopyOperation, AppConfig
 from ..utils.ui_utils import MessageHelper, IconHelper, AboutDialog
 from ..utils.logging_utils import LoggingMixin, OperationContext
+from ..utils.theme import apply_theme, normalize_theme, THEMES
 from config.settings import (
     APP_NAME, APP_VERSION, APP_AUTHOR, APP_DESCRIPTION, WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT,
     WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT, ICON_PATH, MESSAGES
@@ -70,6 +71,8 @@ class DotaTwinApp(LoggingMixin):
         # Cargar configuración primero
         self.config_service = ConfigurationService()
         self.app_config = self.config_service.load_config()
+        self.app_config.tema = normalize_theme(self.app_config.tema)
+        apply_theme(self.root, self.app_config.tema)
         
         # Inicializar servicio de configuración de Steam
         self.steam_config_service = SteamConfigurationService(self.app_config)
@@ -224,6 +227,15 @@ class DotaTwinApp(LoggingMixin):
         config_menu.add_separator()
         config_menu.add_command(label="Detectar Steam automáticamente", command=self._auto_detect_steam)
         
+        # Menú Ver
+        view_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Ver", menu=view_menu)
+        self.theme_var = tk.StringVar(value=self.app_config.tema)
+        for theme_name in THEMES:
+            view_menu.add_radiobutton(
+                label=f"Tema {theme_name}", value=theme_name,
+                variable=self.theme_var, command=self._on_theme_changed)
+        
         # Menú Ayuda
         help_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Ayuda", menu=help_menu)
@@ -237,6 +249,7 @@ class DotaTwinApp(LoggingMixin):
             
             # Frame principal que contendrá todo
             main_container = ttk.Frame(self.root)
+            self.main_container = main_container
             main_container.pack(fill='both', expand=True, padx=10, pady=10)
             
             # Configurar grid del container principal para reservar espacio
@@ -618,6 +631,36 @@ class DotaTwinApp(LoggingMixin):
                 "No se pudo detectar Steam automáticamente.\\n"
                 "Use 'Configurar Steam...' para seleccionar la ubicación manualmente."
             )
+    
+    def _on_theme_changed(self) -> None:
+        """Cambia el tema, lo guarda y reconstruye la interfaz con los nuevos colores."""
+        new_theme = self.theme_var.get()
+        if new_theme == self.app_config.tema:
+            return
+        
+        self.app_config.tema = new_theme
+        self.config_service.save_config(self.app_config)
+        apply_theme(self.root, new_theme)
+        
+        # Los widgets tk solo toman los colores al crearse: se reconstruye la interfaz
+        self.main_container.destroy()
+        self._create_interface()
+        self._load_saved_configuration()
+        self._refresh_account_lists()
+        if self.main_tab_widget and self.current_selection.origen:
+            self.main_tab_widget.navigate_to_account(self.current_selection.origen)
+        self._update_ui_selection()
+
+        self._refresh_title_bar()
+        self.logger.info(f"Tema cambiado a: {new_theme}")
+    
+    def _refresh_title_bar(self) -> None:
+        """Fuerza a Windows a repintar la barra de título tras cambiar el tema."""
+        try:
+            self.root.attributes("-alpha", 0.99)
+            self.root.after(10, lambda: self.root.attributes("-alpha", 1.0))
+        except tk.TclError:
+            pass
     
     def _show_about(self) -> None:
         """Muestra información sobre la aplicación."""

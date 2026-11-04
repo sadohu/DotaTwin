@@ -254,6 +254,7 @@ class AppConfig:
     auto_backup: bool = True
     show_confirmations: bool = True
     custom_steam_path: str = ""  # Ruta personalizada de Steam
+    tema: str = "oscuro"  # Tema de la interfaz: "oscuro" o "claro"
     
     @classmethod
     def load_from_file(cls, file_path: Path) -> 'AppConfig':
@@ -313,7 +314,9 @@ class AppConfig:
             "items_por_pagina": self.items_por_pagina,
             "window_geometry": self.window_geometry,
             "auto_backup": self.auto_backup,
-            "show_confirmations": self.show_confirmations
+            "show_confirmations": self.show_confirmations,
+            "custom_steam_path": self.custom_steam_path,
+            "tema": self.tema
         }
     
     @staticmethod

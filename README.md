@@ -1,4 +1,4 @@
-# 🎮 DotaTwin ![Version](https://img.shields.io/badge/version-v3.1.0-blue)
+# 🎮 DotaTwin ![Version](https://img.shields.io/badge/version-v3.2.0-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 ![Language](https://img.shields.io/badge/language-Python-green)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
@@ -139,7 +139,7 @@ La versión 2.0 presenta una **refactorización completa** con arquitectura modu
 ## 📦 Instalación
 
 ### Opción 1: Ejecutable (Recomendado para usuarios)
-1. **Descargar** el archivo `DotaTwin_v3.1.0.exe` desde [GitHub Releases](https://github.com/sadohu/DotaTwin/releases)
+1. **Descargar** el archivo `DotaTwin_v3.2.0.exe` desde [GitHub Releases](https://github.com/sadohu/DotaTwin/releases)
 2. **Colocar** en cualquier carpeta
 3. **Ejecutar** haciendo doble clic
 

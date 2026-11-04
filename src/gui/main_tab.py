@@ -14,6 +14,7 @@ from ..utils.ui_utils import (
     MessageHelper, WidgetFactory, StyleManager
 )
 from ..utils.logging_utils import LoggingMixin
+from ..utils.theme import palette
 from config.settings import ITEMS_PER_PAGE_OPTIONS
 
 
@@ -59,6 +60,8 @@ class AccountRowWidget(LoggingMixin):
         info_text = self.account.display_name
         self.info_label = tk.Label(self.frame, text=info_text, anchor='w')
         self.info_label.grid(row=0, column=1, sticky='w', padx=10)
+        self.style_manager.apply_account_style(
+            self.frame, "normal", self.avatar_label, self.info_label)
         
         # Botones de acción
         self.btn_origen = IconHelper.create_icon_button(
@@ -112,11 +115,13 @@ class AccountRowWidget(LoggingMixin):
             selection: Selección actual de la aplicación
         """
         if selection.origen == self.account:
-            self.style_manager.apply_account_style(self.frame, "origen")
+            style_type = "origen"
         elif selection.destino == self.account:
-            self.style_manager.apply_account_style(self.frame, "destino")
+            style_type = "destino"
         else:
-            self.style_manager.apply_account_style(self.frame, "normal")
+            style_type = "normal"
+        self.style_manager.apply_account_style(
+            self.frame, style_type, self.avatar_label, self.info_label)
     
     def pack(self, **kwargs) -> None:
         """Empaqueta el frame principal."""
@@ -512,7 +517,7 @@ class StatusWidget(LoggingMixin):
             self.status_frame,
             text="Selecciona origen y destino",
             font=("Arial", 11, "bold"),
-            fg="blue"
+            fg=palette()["status_info"]
         )
         self.status_label.pack(pady=5)
     
@@ -532,12 +537,13 @@ class StatusWidget(LoggingMixin):
         # Determinar mensaje y color
         message = selection.copy_description
         
+        colors = palette()
         if not selection.is_complete:
-            color = "blue"
+            color = colors["status_info"]
         elif not selection.is_valid:
-            color = "red"
+            color = colors["status_error"]
         else:
-            color = "green"
+            color = colors["status_ok"]
         
         # Actualizar label
         self.status_label.config(text=message, fg=color)

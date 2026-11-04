@@ -5,6 +5,18 @@ Todos los cambios notables de este proyecto serán documentados en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto adhiere a [Versionado Semántico](https://semver.org/lang/es/).
 
+## [v3.2.0] - 2026-11-04 🌙 MODO OSCURO
+
+### 🎨 **TEMAS**
+- **Modo oscuro por defecto**: Toda la interfaz (pestañas, filas, botones, diálogos y barra de título de Windows) usa un tema oscuro
+- **Modo claro opcional**: Menú **Ver → Tema oscuro / Tema claro**; el cambio es inmediato y conserva la selección
+- **Preferencia guardada**: El tema elegido se guarda en `ultima_seleccion.json` (campo `tema`)
+- **Filas de cuenta**: El color de origen/destino ahora cubre toda la fila, incluidos avatar y nombre
+
+### 🐛 **CORRECCIONES**
+- **Ruta de Steam personalizada**: Ahora se guarda en la configuración (antes se perdía al cerrar)
+- **Configuración única**: La aplicación y el servicio de configuración comparten el mismo objeto, evitando que un guardado pisara a otro
+
 ## [v3.1.1] - 2026-11-03 🛠️ CUENTAS NUEVAS Y STEAM CLOUD
 
 ### ✨ **CUENTAS SIN CARPETA 570**
