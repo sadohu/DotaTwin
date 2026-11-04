@@ -58,9 +58,15 @@ Al abrirlo por primera vez, Windows puede mostrar **"Windows protegió su PC"**.
 
 ¿Dudas, problemas o sugerencias? Escríbeme:
 
-- 🐙 **GitHub**: [github.com/sadohu](https://github.com/sadohu)
+- 🐙 **GitHub**: <a href="https://github.com/sadohu" target="_blank" rel="noopener noreferrer">github.com/sadohu</a>
+- 📱 **WhatsApp**: <a href="https://wa.me/sadohu" target="_blank" rel="noopener noreferrer">escríbeme aquí</a>
 - 💬 **Discord**: búscame como **sadohu**
-- 📱 **WhatsApp**: búscame como **@sadohu**
+
+---
+
+## 🙏 Agradecimientos
+
+- <a href="https://github.com/EpziTecho" target="_blank" rel="noopener noreferrer"><b>EpziTecho</b></a>, por sugerir el nombre "DotaTwin".
 
 ---
 
